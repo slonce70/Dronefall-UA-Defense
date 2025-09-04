@@ -160,6 +160,8 @@ let map,
 // Expose lightweight runtime stats for diagnostics and tests
 try {
   const w = window || globalThis;
+  // Експортуємо Leaflet як глобальний `L` для модулів, що очікують глобал
+  if (!w.L) w.L = L;
   w.__stats = {
     get drones() {
       return drones.length;
@@ -906,5 +908,7 @@ function makeDraggable(t, e) {
       }));
   };
 }
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 // bezier helpers imported from ./src/utils.js
 updateUI();
