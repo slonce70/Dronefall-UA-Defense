@@ -447,18 +447,8 @@ function initializeMapAndGame() {
         }, 8000);
       } catch {}
     })(),
-    // schedule the first wave start (guarded)
-    setTimeout(
-      () => {
-        if (!gameOver && !gameWon && currentWave === 0 && lastStartedWaveIndex !== currentWave) {
-          startWave();
-          money += 150 * (currentWave + 1);
-          currentWave++;
-          updateUI();
-        }
-      },
-      __testMode ? 1200 : 10000
-    ),
+    // early starter тепер у планувальнику
+    (scheduler && scheduler.startGuards && scheduler.startGuards()),
     makeDraggable(controlPanel, dragHandle),
     // As an additional safety for debug visibility in CI, ensure __stats.sprites.drawn > 0
     (function ensureDrawnCounterInDebug() {
@@ -765,99 +755,30 @@ function startWave() {
   spawner.spawnWave(light, rk, heavy);
 }
 function gameLoop() {
-  var t, a;
-  gameOver ||
-    gameWon ||
-    ((t = ((a = performance.now()) - lastFrameTime) / 1e3),
-    (accumulatedGameTime += t * gameSpeed),
-    (lastFrameTime = a),
-    // Stats heartbeat for diagnostics (even if sprites renderer is bypassed)
-    (function () {
-      try {
-        const w = window || globalThis;
-        if (w.__stats) {
-          w.__stats.drawFrames = (w.__stats.drawFrames || 0) + 1;
-          w.__stats.lastDronesDrawn = drones.length;
-          w.__stats.lastRocketsDrawn = rockets.length;
-        }
-      } catch {}
-    })(),
-    // Fail-safe: якщо перша хвиля не стартувала з якихось причин —
-    // гарантуємо запуск із геймлупа після заданого порогу.
-    currentWave === 0 &&
-    drones.length === 0 &&
-    rockets.length === 0 &&
-    accumulatedGameTime > (__testMode ? 2 : 10) &&
-    lastStartedWaveIndex !== currentWave
-      ? (console.log('[fail-safe] Starting wave 1 from gameLoop'),
-        startWave(),
-        (money += 150 * (currentWave + 1)),
-        currentWave++,
-        updateUI())
-      : null,
-    (rightOnlyMode || !hardcoreMode) &&
-    25 <= currentWave &&
-    0 === drones.length &&
-    0 === rockets.length
-      ? checkVictory()
-      : (accumulatedGameTime >= waveSchedule[currentWave] &&
-          ((!rightOnlyMode && hardcoreMode) || currentWave < 25) &&
-          lastStartedWaveIndex !== currentWave &&
-          (console.log(
-            `Game Loop: Wave ${currentWave + 1}, defensePoints=${defensePoints.length}, alive=` +
-              defensePoints.filter((e) => e.alive).length
-          ),
-          [1, 4, 6, 9, 11].includes(currentWave) &&
-            (0 <
-            (t = Object.keys(regionSpawnPoints).filter((e) =>
-              regionSpawnPoints[e].some(
-                (t) => !usedSpawnPoints.some((e) => e[0] === t[0] && e[1] === t[1])
-              )
-            )).length
-              ? showTargetNotification((nextTargetRegion = t[Math.floor(Math.random() * t.length)]))
-              : (console.warn('No available regions with unused spawn points'),
-                (nextTargetRegion = null))),
-          2 === currentWave &&
-            allDefensePoints.length < 2 &&
-            nextTargetRegion &&
-            ((a = getRandomSpawnPoint(nextTargetRegion)),
-            allDefensePoints.push(a),
-            usedSpawnPoints.push(a),
-            activateDefensePoint(1, a)),
-          5 === currentWave &&
-            allDefensePoints.length < 3 &&
-            nextTargetRegion &&
-            ((t = getRandomSpawnPoint(nextTargetRegion)),
-            allDefensePoints.push(t),
-            usedSpawnPoints.push(t),
-            activateDefensePoint(2, t)),
-          7 === currentWave &&
-            allDefensePoints.length < 4 &&
-            nextTargetRegion &&
-            ((a = getRandomSpawnPoint(nextTargetRegion)),
-            allDefensePoints.push(a),
-            usedSpawnPoints.push(a),
-            activateDefensePoint(3, a)),
-          10 === currentWave &&
-            allDefensePoints.length < 5 &&
-            nextTargetRegion &&
-            ((t = getRandomSpawnPoint(nextTargetRegion)),
-            allDefensePoints.push(t),
-            usedSpawnPoints.push(t),
-            activateDefensePoint(4, t)),
-          12 === currentWave &&
-            allDefensePoints.length < 6 &&
-            nextTargetRegion &&
-            ((a = getRandomSpawnPoint(nextTargetRegion)),
-            allDefensePoints.push(a),
-            usedSpawnPoints.push(a),
-            activateDefensePoint(5, a)),
-          startWave(),
-          (money += 150 * (currentWave + 1)),
-          currentWave++,
-          updateUI()),
-        drawSprites(drones, rockets),
-        requestAnimationFrame(gameLoop)));
+  if (gameOver || gameWon) {
+    return;
+  }
+  const now = performance.now();
+  const t = (now - lastFrameTime) / 1000;
+  accumulatedGameTime += t * gameSpeed;
+  lastFrameTime = now;
+  // Stats heartbeat for diagnostics (even if sprites renderer is bypassed)
+  try {
+    const w = window || globalThis;
+    if (w.__stats) {
+      w.__stats.drawFrames = (w.__stats.drawFrames || 0) + 1;
+      w.__stats.lastDronesDrawn = drones.length;
+      w.__stats.lastRocketsDrawn = rockets.length;
+    }
+  } catch {}
+  // Планувальник хвиль (умови перемоги/запуск/підказки/активації)
+  try {
+    if (scheduler && scheduler.tick) {
+      scheduler.tick();
+    }
+  } catch {}
+  drawSprites(drones, rockets);
+  requestAnimationFrame(gameLoop);
 }
 function checkVictory() {
   if (!gameWon && !gameOver) {
