@@ -102,8 +102,9 @@
 
 Збірка та PWA
 
-- CSS тепер підʼєднується у `index.html` через `<link>`, що усуває «миготіння» в dev.
-- `prebuild`: копіювання зовнішніх залежностей у `public/_externos`.
+- CSS підʼєднується у `index.html` через `<link>`, що усуває «миготіння» в dev.
+- Leaflet підʼєднано через npm та бандлиться Vite; `_externos` не використовується.
+- Усі асети лежать у `public/assets` (пряма роздача `/assets/*`).
 - `postbuild`: генерація `dist/precache-manifest.json` (використовується SW).
 - `public/sw.js`: runtime‑кеш + pre‑cache; ігнорує partial (206) і Range‑запити.
 - У dev SW автоматично відписується (див. `index.html`).

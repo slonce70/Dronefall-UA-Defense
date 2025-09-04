@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/copy-externals.mjs && vite",
-    "prebuild": "node scripts/copy-externals.mjs",
+    "dev": "node scripts/sync-public-assets.mjs && vite",
+    "prebuild": "node scripts/sync-public-assets.mjs",
     "build": "vite build",
     "postbuild": "node scripts/generate-precache.mjs",
     "preview": "vite preview",
