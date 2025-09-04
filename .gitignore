@@ -1,0 +1,19 @@
+# Node / tooling
+node_modules/
+.DS_Store
+*.log
+
+# Vite outputs
+dist/
+.vite/
+
+# Tests & coverage
+coverage/
+playwright-report/
+test-results/
+public/_externos/
+
+# Editor / OS
+.idea/
+.vscode/
+Thumbs.db

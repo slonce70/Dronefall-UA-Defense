@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dronefall: UA Defense</title>
+    <meta name="theme-color" content="#0b0b0b" />
+    <!-- Мінімальні критичні стилі: темний фон + покриття preMenu щоб уникнути «білої» вспишки -->
+    <style>
+      html,body{margin:0;height:100%;background:#0b0b0b}
+      #preMenu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0b0b;z-index:1000}
+      #preMenu .overlay{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+    </style>
+    <!-- Preload шпалер титульного екрану для швидшого першого кадру -->
+    <link rel="preload" as="image" href="/assets/wallpaper.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/assets/favicon.png" />
+    <!-- Підключаємо CSS одразу, без JS‑інʼєкції, щоб уникати миготіння в dev -->
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/footer.css" />
+    <link rel="stylesheet" href="_externos/unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="_externos/unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <div id="controlPanel">
+      <span id="dragHandle"></span>
+      <div class="panel-body">
+        <span id="money">💶 3500</span>
+        <span id="waveDisplay">🌊 0</span>
+        <span id="scoreDisplay">🎯 0</span>
+      </div>
+    </div>
+
+    <div id="soundButtonContainer">
+      <div id="speedButtons" role="group" aria-label="Керування швидкістю">
+        <button id="speed1x" class="speed-button active" aria-label="Швидкість 1x">1x</button>
+        <button id="speed2x" class="speed-button" aria-label="Швидкість 2x">2x</button>
+        <button id="speed3x" class="speed-button" aria-label="Швидкість 3x">3x</button>
+      </div>
+      <div id="settingsButtons">
+        <button id="pauseButton" aria-label="Пауза">⏸️</button>
+        <button id="soundButton" aria-label="Перемкнути звук">🔊</button>
+      </div>
+    </div>
+
+    <audio id="bgMusic" loop src="assets/music.mp3" playsinline preload="none"></audio>
+    <audio id="alarmSound" src="assets/alarm.mp3" playsinline preload="auto"></audio>
+
+    <div id="preMenu">
+      <div class="overlay"></div>
+      <div class="preMenu-content" role="dialog" aria-modal="true" aria-labelledby="gameTitle">
+        <span class="ai-note"
+          >🧠 Ця гра створена за допомогою штучного інтелекту.<br />© 2025 DroneFall v.1.8.22</span
+        >
+        <h1 id="gameTitle">Dronefall: UA Defense</h1>
+        <div class="button-group compact">
+          <button id="startBtn" class="mode-button small">
+            Режим:<br />🔄️ Кругова<br />оборона
+          </button>
+          <button id="startRightBtn" class="mode-button small">
+            Режим:<br />➡️ Проти<br />росії
+          </button>
+        </div>
+        <div class="button-group compact" style="margin-top: 0px">
+          <button id="startHardcoreBtn" class="mode-button small">Режим:<br />🔥 Хардкор</button>
+
+          <button id="startCrtv" class="mode-button small">⌛ Незабаром...</button>
+        </div>
+
+        <div id="legend">
+          💶 Гроші - для покупки ППО.<br />
+          🌊 Хвиля - номер атаки.<br />
+          🎯 Рахунок - кількість знищених цілей.
+        </div>
+        <button
+          class="donate-btn"
+          onclick="(function(){var w=window.open('https://send.monobank.ua/jar/2JbpBYkhMv','_blank'); if(w) w.opener=null;})()"
+        >
+          💙 Донат на ЗСУ
+        </button>
+        <button
+          class="donate-btn"
+          onclick="(function(){var w=window.open('https://send.monobank.ua/jar/z1H8hEA96','_blank'); if(w) w.opener=null;})()"
+        >
+          💛 Підтримати проєкт
+        </button>
+        <div class="footer-links">
+          <a href="https://t.me/dronefall" target="_blank" rel="noopener noreferrer">
+            <img src="assets/telegram-icon.png" alt="Телеграм" />
+          </a>
+          <a href="https://tiktok.com/@eurogames7" target="_blank" rel="noopener noreferrer">
+            <img src="assets/tiktok-logo.png" alt="ТікТок" />
+          </a>
+        </div>
+
+        <div id="loading" role="status" aria-live="polite">
+          <div id="loadingText" aria-live="polite">Завантаження: 0%</div>
+          <div id="loadingBar"><div id="loadingProgress"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="pvoMenu"></div>
+
+    <div id="alarmIndicator">
+      <div class="alarm-dot"></div>
+      ⚠️ Повторні пуски
+    </div>
+
+    <script>
+      document.addEventListener(
+        'click',
+        () => {
+          const music = document.getElementById('bgMusic');
+          if (music && music.paused) music.play();
+        },
+        { once: true }
+      );
+
+      // Клавіші: Пробіл — пауза; 1/2/3 — швидкість; M — звук
+      document.addEventListener('keydown', (e) => {
+        const pause = document.getElementById('pauseButton');
+        const s1 = document.getElementById('speed1x');
+        const s2 = document.getElementById('speed2x');
+        const s3 = document.getElementById('speed3x');
+        const snd = document.getElementById('soundButton');
+        if (!pause || !s1 || !s2 || !s3 || !snd) return;
+        if (e.key === ' ') {
+          e.preventDefault();
+          pause.click();
+        }
+        if (e.key === '1') s1.click();
+        if (e.key === '2') s2.click();
+        if (e.key === '3') s3.click();
+        if (e.key.toLowerCase() === 'm') snd.click();
+      });
+
+      // Реєструємо SW лише у продакшені; у dev (localhost) — автоматичне відписування
+      (function () {
+        if (!('serviceWorker' in navigator)) return;
+        const isLocal =
+          /^(localhost|127\.0\.0\.1)(:\\d+)?$/.test(location.host) ||
+          location.hostname.endsWith('.local');
+        if (isLocal) {
+          // Dev: гарантовано скасовуємо реєстрацію, щоб кеш не заважав розробці
+          navigator.serviceWorker
+            .getRegistrations()
+            .then((regs) => regs.forEach((r) => r.unregister()))
+            .catch(() => {});
+        } else {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(() => {
+              /* ignore */
+            });
+          });
+        }
+      })();
+
+      // Pause when tab is hidden (avoid in automated/browser tests)
+      if (!('webdriver' in navigator) || !navigator.webdriver) {
+        document.addEventListener('visibilitychange', () => {
+          const pause = document.getElementById('pauseButton');
+          if (document.hidden && pause && pause.textContent !== '▶️') {
+            pause.click();
+          }
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

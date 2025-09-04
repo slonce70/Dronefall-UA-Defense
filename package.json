@@ -1,0 +1,33 @@
+{
+  "name": "dronefall-offline",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/copy-externals.mjs && vite",
+    "prebuild": "node scripts/copy-externals.mjs",
+    "build": "vite build",
+    "postbuild": "node scripts/generate-precache.mjs",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "format": "prettier -w .",
+    "test": "vitest run",
+    "test:ui": "vitest",
+    "e2e": "playwright test",
+    "compress": "node scripts/compress-assets.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "@playwright/test": "^1.46.0",
+    "@types/leaflet": "^1.9.9",
+    "eslint": "^9.9.0",
+    "fast-glob": "^3.3.3",
+    "imagemin": "^9.0.1",
+    "imagemin-optipng": "^8.0.0",
+    "imagemin-webp": "^7.0.0",
+    "imagemin-zopfli": "^7.0.0",
+    "prettier": "^3.3.3",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.5"
+  }
+}

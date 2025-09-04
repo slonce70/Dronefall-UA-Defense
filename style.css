@@ -1,0 +1,412 @@
+body,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: sans-serif;
+  line-height: 1.4;
+  overflow-y: hidden;
+}
+#map {
+  height: 100vh;
+  width: 100vw;
+}
+#controlPanel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #000;
+  border: 2px solid #666;
+  padding: 10px;
+  z-index: 1001;
+  border-radius: 6px;
+  font-family: sans-serif;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+  max-width: 280px;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  white-space: normal;
+  display: none;
+  color: #fff;
+}
+#controlPanel .panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#controlPanel button {
+  font-size: 14px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+#soundButtonContainer {
+  position: absolute;
+  top: 120px;
+  right: 10px;
+  z-index: 1002;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+}
+#speedButtons {
+  gap: 5px;
+}
+.speed-button {
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  transition: 0.2s;
+}
+.speed-button.active {
+  background-color: #007bff;
+  box-shadow: 0 0 8px #007bff;
+}
+.speed-button:hover {
+  background-color: #555;
+}
+#pauseButton,
+#soundButton {
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 13px;
+}
+#settingsButtons {
+  display: flex;
+  gap: 3px;
+}
+#pvoMenu {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: none;
+  gap: 3px;
+  background: linear-gradient(to bottom, #222d2f, #1a1f1f);
+  border: 2px solid #000;
+  box-shadow:
+    inset 0 0 4px #000,
+    0 0 8px rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  padding: 8px 12px;
+  backdrop-filter: blur(4px);
+  width: 100%;
+  max-width: 680px;
+  overflow-x: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Під час взаємодії з мапою (зум/пан/перетяг) оминаємо дорогі ефекти — менше перемальовок */
+.pvo-item {
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px;
+  width: 50px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 12px;
+  background: #f9f9f9;
+  transition: 0.2s;
+  user-select: none;
+  line-height: 1.2;
+}
+.pvo-item:hover {
+  transform: scale(1.05);
+  background: #e0f0ff;
+}
+.pvo-item img {
+  width: 49px;
+  height: 36px;
+  object-fit: contain;
+  margin-bottom: 4px;
+}
+.pvo-item.selected {
+  border-color: #007bff;
+  background-color: #d0e7ff;
+  box-shadow: 0 0 8px #007bff;
+}
+#preMenu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('assets/wallpaper.png') center center/cover no-repeat;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+}
+#preMenu .overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1;
+}
+.preMenu-content {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  max-width: 90%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ai-note {
+  font-size: 14px;
+  color: #ccc;
+  margin-bottom: 10px;
+}
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0;
+  width: 100%;
+  max-width: 320px;
+}
+.mode-button {
+  padding: 12px 24px;
+  font-size: 17px;
+  border-radius: 6px;
+  background: linear-gradient(to bottom, #2e2e2e, #1b1b1b);
+  color: #e0e0e0;
+  border: 1px solid #444;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease-in-out;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  width: 200px;
+}
+.mode-button:hover {
+  background: linear-gradient(to bottom, #3a3a3a, #222);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  color: #fff;
+  transform: scale(1.02);
+}
+#legend {
+  margin-top: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 15px 20px;
+  border-radius: 10px;
+  font-size: 16px;
+  max-width: 400px;
+  text-align: left;
+  color: #fff;
+}
+.donate-btn {
+  padding: 10px 20px;
+  font-size: 18px;
+  background-color: #fff;
+  color: #000;
+  border: 2px solid #28a745;
+  border-radius: 8px;
+  margin-top: 10px;
+  cursor: pointer;
+}
+.footer-links {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-top: 20px;
+}
+.footer-links a {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 14px;
+}
+#loading {
+  margin-top: 30px;
+  display: none;
+}
+#loadingText {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+#loadingBar {
+  width: 300px;
+  height: 20px;
+  background: #555;
+  margin: 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+}
+#loadingProgress {
+  width: 0%;
+  height: 100%;
+  background: #0f0;
+  transition: width 0.3s;
+}
+#alarmIndicator {
+  position: absolute;
+  bottom: 20px;
+  left: 40px;
+  display: none;
+  z-index: 10000;
+  width: 60px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #000;
+}
+.alarm-dot {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 4px;
+  background: red;
+  border-radius: 50%;
+  animation: 0.4s infinite pulse;
+  box-shadow: 0 0 15px 6px red;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+}
+.heavy-drone-icon img {
+  width: 45px;
+  height: 45px;
+}
+.pvo-button {
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px;
+  width: 100%;
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+  background: #f9f9f9;
+  transition: 0.2s;
+  user-select: none;
+  line-height: 1.2;
+}
+.pvo-button:hover {
+  background-color: #444;
+}
+.progress-bar-container {
+  position: absolute;
+  width: 60px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #fff;
+  border-radius: 4px;
+  z-index: 1000;
+}
+.progress-bar {
+  height: 100%;
+  background: #1f8cff;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+.mode-button.small {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+.button-group.compact {
+  flex-direction: row;
+  gap: 8px;
+  justify-content: center;
+}
+#pauseButton:hover,
+#soundButton:hover {
+  background-color: #555;
+}
+#pauseButton.active,
+#soundButton.active {
+  background-color: #007bff;
+  box-shadow: 0 0 8px #007bff;
+}
+@media (max-width: 600px) {
+  .button-group {
+    width: 100%;
+  }
+  #legend {
+    font-size: 14px;
+  }
+  .footer-links {
+    flex-direction: column;
+    gap: 8px;
+  }
+  #controlPanel {
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border: none;
+    box-shadow: none;
+    padding: 6px 10px;
+    font-size: 14px;
+    max-width: none;
+    z-index: 1002;
+  }
+  #controlPanel .panel-body {
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  #controlPanel button {
+    display: none !important;
+  }
+  #alarmIndicator {
+    position: fixed !important;
+    bottom: 150px !important;
+    left: 20px !important;
+    transform: none !important;
+    z-index: 1003 !important;
+  }
+  #soundButtonContainer {
+    top: 10px;
+    right: 10px;
+  }
+  #pauseButton,
+  #soundButton {
+    font-size: 10px;
+    padding: 4px 12px;
+  }
+  #settingsButtons {
+    display: flex;
+    gap: 5px;
+  }
+  .speed-button {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+  .rotating-icon {
+    transform-origin: center center;
+  }
+}

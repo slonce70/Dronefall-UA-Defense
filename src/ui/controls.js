@@ -1,0 +1,94 @@
+// Керування швидкістю та звуком (обробники подій та UI)
+
+/**
+ * @typedef {Object} ControlsCtx
+ * @property {HTMLElement} soundButton
+ * @property {HTMLAudioElement} alarmSound
+ * @property {HTMLElement} speed1
+ * @property {HTMLElement} speed2
+ * @property {HTMLElement} speed3
+ * @property {HTMLElement} pauseButton
+ * @property {() => number} getGameSpeed
+ * @property {(n:number) => void} setGameSpeed
+ * @property {() => boolean} getIsSoundOn
+ * @property {(v:boolean) => void} setIsSoundOn
+ */
+
+/**
+ * Ініціалізація обробників для кнопок швидкості/паузи та звуку.
+ * Локально зберігає останню ненульову швидкість, щоб коректно знімати паузу.
+ *
+ * @param {ControlsCtx} ctx
+ */
+export function setupSpeedAndSoundControls(ctx) {
+  const {
+    soundButton,
+    alarmSound,
+    speed1,
+    speed2,
+    speed3,
+    pauseButton,
+    getGameSpeed,
+    setGameSpeed,
+    getIsSoundOn,
+    setIsSoundOn,
+  } = ctx;
+
+  let lastNonZeroSpeed = Math.max(1, getGameSpeed() || 1);
+
+  function applySpeedUi(gs) {
+    [speed1, speed2, speed3].forEach((el) => el.classList.remove('active'));
+    if (gs === 0) {
+      pauseButton.textContent = '▶️';
+    } else {
+      pauseButton.textContent = '⏸️';
+      const btn = gs >= 3 ? speed3 : gs >= 2 ? speed2 : speed1;
+      btn.classList.add('active');
+    }
+  }
+
+  function changeSpeed(newSpeed) {
+    if (newSpeed > 0) {
+      lastNonZeroSpeed = newSpeed;
+    }
+    setGameSpeed(newSpeed);
+    applySpeedUi(newSpeed);
+  }
+
+  // Обробники кнопок швидкості
+  speed1.onclick = () => changeSpeed(1);
+  speed2.onclick = () => changeSpeed(2);
+  speed3.onclick = () => changeSpeed(3);
+  pauseButton.onclick = () => {
+    const gs = getGameSpeed();
+    if (gs === 0) {
+      changeSpeed(lastNonZeroSpeed || 1);
+    } else {
+      changeSpeed(0);
+    }
+  };
+
+  // Початкове застосування стану UI
+  applySpeedUi(getGameSpeed() || 1);
+
+  // Звук
+  function applySoundUi(on) {
+    soundButton.textContent = on ? '🔊' : '🔇';
+    try {
+      if (alarmSound) alarmSound.muted = !on;
+    } catch {}
+    try {
+      const bg = document.getElementById('bgMusic');
+      if (bg) {
+        bg.muted = !on;
+      }
+    } catch {}
+  }
+
+  soundButton.onclick = () => {
+    const next = !getIsSoundOn();
+    setIsSoundOn(next);
+    applySoundUi(next);
+  };
+  applySoundUi(getIsSoundOn());
+}
