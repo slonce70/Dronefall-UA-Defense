@@ -12,6 +12,7 @@ coverage/
 playwright-report/
 test-results/
 public/_externos/
+public/assets/
 
 # Editor / OS
 .idea/
