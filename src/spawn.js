@@ -17,7 +17,9 @@ export function getRandomSpawnPoint(region, regionSpawnPoints, usedSpawnPoints) 
 export function getRandomTarget(allowDefensePoint, defensePoints, pvoList, airport) {
   const aliveDef = defensePoints.filter((d) => d.alive);
   // Якщо немає жодної цілі
-  if (aliveDef.length === 0 && pvoList.length === 0 && !(airport && airport.alive)) return null;
+  if (aliveDef.length === 0 && pvoList.length === 0 && !(airport && airport.alive)) {
+    return null;
+  }
 
   // Як в оригіналі: невеликий шанс обрати ППО (вищий для ракет)
   const pvoChance = allowDefensePoint ? 0.2 : 0.3; // drones: 20%, rockets: 30%
@@ -46,6 +48,8 @@ export function getRandomTarget(allowDefensePoint, defensePoints, pvoList, airpo
       return { lat: p.latlng.lat, lng: p.latlng.lng };
     }
   }
-  if (airport && airport.alive) return { lat: airport.lat, lng: airport.lng };
+  if (airport && airport.alive) {
+    return { lat: airport.lat, lng: airport.lng };
+  }
   return null;
 }

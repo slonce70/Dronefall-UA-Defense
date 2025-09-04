@@ -7,7 +7,7 @@
   "theme_color": "#0b0b0b",
   "description": "Офлайн-гра з картою (Leaflet) та Canvas-рендером.",
   "icons": [
-    { "src": "assets/telegram-icon.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "assets/tiktok-logo.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "assets/favicon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/favicon.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

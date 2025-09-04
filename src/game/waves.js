@@ -40,9 +40,13 @@ export function computeWaveComposition(currentWave) {
   const total = light + heavy + rockets;
   if (total !== FIXED_TOTAL_ENEMIES) {
     const delta = FIXED_TOTAL_ENEMIES - total;
-    if (light > 0) light = Math.max(0, light + delta);
-    else if (heavy > 0) heavy = Math.max(0, heavy + delta);
-    else rockets += delta;
+    if (light > 0) {
+      light = Math.max(0, light + delta);
+    } else if (heavy > 0) {
+      heavy = Math.max(0, heavy + delta);
+    } else {
+      rockets += delta;
+    }
   }
   return { light, rockets, heavy };
 }

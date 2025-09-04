@@ -1,4 +1,9 @@
-import { bezierPoint, bezierTangent, generateControlPoint, approximateBezierLength } from '../utils.js';
+import {
+  bezierPoint,
+  bezierTangent,
+  generateControlPoint,
+  approximateBezierLength,
+} from '../utils.js';
 import { drawBeam } from '../beams.js';
 import { explosion } from '../effects.js';
 import { PIXEL_TO_METERS } from '../constants.js';
@@ -36,7 +41,9 @@ function handleEnemyImpact(ctx, ent, idx) {
   if (hitPvo) {
     try {
       map.removeLayer(hitPvo.marker);
-      if (hitPvo.rangeCircle) map.removeLayer(hitPvo.rangeCircle);
+      if (hitPvo.rangeCircle) {
+        map.removeLayer(hitPvo.rangeCircle);
+      }
     } catch {}
     pvoList.splice(pvoList.indexOf(hitPvo), 1);
     ctx.updatePvoPurchaseAvailability();
@@ -88,7 +95,9 @@ function handleEnemyImpact(ctx, ent, idx) {
     idx,
     1
   );
-  if (ctx.getDefensePoints().filter((d) => d.alive).length === 0) ctx.endGame();
+  if (ctx.getDefensePoints().filter((d) => d.alive).length === 0) {
+    ctx.endGame();
+  }
 }
 
 // Токен для інвалідації старих RAF‑циклів між рестартами
@@ -103,7 +112,8 @@ function updateDrones(ctx, now, dtFactor) {
   const pvoList = ctx.getPvoList();
   const getGameSpeed = ctx.getGameSpeed;
 
-  drones.forEach((a, n) => {
+  for (let n = drones.length - 1; n >= 0; n--) {
+    const a = drones[n];
     if (a.hp <= 0) {
       explosion(map, a.position, getGameSpeed());
       drones.splice(n, 1);
@@ -182,9 +192,9 @@ function updateDrones(ctx, now, dtFactor) {
         const distEnd = Math.sqrt(dxEnd * dxEnd + dyEnd * dyEnd);
         if (a.t >= 0.999 || distEnd < 10) {
           handleEnemyImpact(ctx, a, n);
-          return; // сутність видалена
+          continue; // сутність видалена — переходимо до наступного елемента (у зворотному порядку)
         }
-        let tan = bezierTangent(a.start, a.control, a.target, a.t);
+        const tan = bezierTangent(a.start, a.control, a.target, a.t);
         a.angleRad = Math.atan2(tan[1], tan[0]);
         pvoList.forEach((t) => {
           const dx = a.position[1] - t.latlng.lng;
@@ -204,7 +214,7 @@ function updateDrones(ctx, now, dtFactor) {
         });
       }
     }
-  });
+  }
 }
 
 function updateRockets(ctx, now, dtFactor) {
@@ -213,7 +223,8 @@ function updateRockets(ctx, now, dtFactor) {
   const pvoList = ctx.getPvoList();
   const getGameSpeed = ctx.getGameSpeed;
 
-  rockets.forEach((a, n) => {
+  for (let n = rockets.length - 1; n >= 0; n--) {
+    const a = rockets[n];
     if (a.hp <= 0) {
       explosion(map, a.position, getGameSpeed());
       rockets.splice(n, 1);
@@ -236,15 +247,16 @@ function updateRockets(ctx, now, dtFactor) {
         const rt = ctx.getRandomTarget(false);
         if (!rt) {
           rockets.splice(n, 1);
-          return;
+          continue;
         }
         a.target = [rt.lat, rt.lng];
       }
-      let dx = a.target[0] - a.position[0];
-      let dy = a.target[1] - a.position[1];
+      const dx = a.target[0] - a.position[0];
+      const dy = a.target[1] - a.position[1];
       const len = Math.sqrt(dx * dx + dy * dy);
       if (len < 10) {
         handleEnemyImpact(ctx, a, n);
+        continue;
       } else {
         const ux = dx / len;
         const uy = dy / len;
@@ -301,7 +313,7 @@ function updateRockets(ctx, now, dtFactor) {
         }
       }
     }
-  });
+  }
 }
 
 function updateMobilePVO(ctx) {
@@ -319,7 +331,9 @@ function updateMobilePVO(ctx) {
           e.targetPosition = null;
           e.patrolAngle = 0;
           e.marker.setLatLng(e.latlng);
-          if (e.rangeCircle) e.rangeCircle.setLatLng(e.latlng);
+          if (e.rangeCircle) {
+            e.rangeCircle.setLatLng(e.latlng);
+          }
         } else {
           const dist = Math.sqrt(dist2) || 1;
           dy /= dist;
@@ -327,10 +341,14 @@ function updateMobilePVO(ctx) {
           const sp = 1.4 * e.speed * getGameSpeed();
           e.latlng = L.latLng(e.latlng.lat + dy * sp, e.latlng.lng + dx * sp);
           e.marker.setLatLng(e.latlng);
-          if (e.rangeCircle) e.rangeCircle.setLatLng(e.latlng);
+          if (e.rangeCircle) {
+            e.rangeCircle.setLatLng(e.latlng);
+          }
           const deg = Math.atan2(dx, dy) * (180 / Math.PI) + 90;
           const img = e.imgEl || (e.imgEl = e.marker.getElement()?.querySelector('img'));
-          if (img) img.style.transform = `rotate(${deg}deg)`;
+          if (img) {
+            img.style.transform = `rotate(${deg}deg)`;
+          }
         }
       } else {
         e.patrolAngle += 0.01 * e.speed * getGameSpeed();
@@ -340,17 +358,23 @@ function updateMobilePVO(ctx) {
         const x = e.center.lng + Math.cos(ang) * rad;
         e.latlng = L.latLng(y, x);
         e.marker.setLatLng(e.latlng);
-        if (e.rangeCircle) e.rangeCircle.setLatLng(e.latlng);
+        if (e.rangeCircle) {
+          e.rangeCircle.setLatLng(e.latlng);
+        }
         const deg = ang * (-180 / Math.PI) + 90;
         const img = e.imgEl || (e.imgEl = e.marker.getElement()?.querySelector('img'));
-        if (img) img.style.transform = `rotate(${deg}deg)`;
+        if (img) {
+          img.style.transform = `rotate(${deg}deg)`;
+        }
       }
     }
   });
 }
 
 function tickLoop(ctx, token, now = 0) {
-  if (token !== __movementToken || ctx.getGameOver()) return;
+  if (token !== __movementToken || ctx.getGameOver()) {
+    return;
+  }
   const dt = __lastTs ? Math.max(0, now - __lastTs) : 16;
   __lastTs = now;
   const dtFactor = dt / 16; // нормалізація під 60 FPS

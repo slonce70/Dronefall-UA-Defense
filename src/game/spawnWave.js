@@ -192,7 +192,9 @@ export function setupSpawner(ctx) {
   }
 
   function spawnWave(t = 3, a = 0, n = 0) {
-    if (ctx.getRightOnlyMode()) return spawnFromRightOnly(t, a, n);
+    if (ctx.getRightOnlyMode()) {
+      return spawnFromRightOnly(t, a, n);
+    }
 
     const drones = ctx.getDrones();
     const rockets = ctx.getRockets();
@@ -202,10 +204,16 @@ export function setupSpawner(ctx) {
     let createdLight = 0;
     for (let i = 0; i < t; i++) {
       let sx, sy; // sx=lng, sy=lat
-      let side = ['right'];
-      if (currentWave >= 4) side.push('bottom');
-      if (currentWave >= 8) side.push('top');
-      if (currentWave >= 12) side.push('left');
+      const side = ['right'];
+      if (currentWave >= 4) {
+        side.push('bottom');
+      }
+      if (currentWave >= 8) {
+        side.push('top');
+      }
+      if (currentWave >= 12) {
+        side.push('left');
+      }
       const chosen = side[Math.floor(Math.random() * side.length)];
       if (chosen === 'right') {
         sx = MAP_HEIGHT + OUTER_MARGIN * Math.random(); // lng за межами праворуч
@@ -267,10 +275,16 @@ export function setupSpawner(ctx) {
     let createdHeavy = 0;
     for (let i = 0; i < n; i++) {
       let sx, sy; // sx=lng, sy=lat
-      let side = ['right'];
-      if (currentWave >= 4) side.push('bottom');
-      if (currentWave >= 8) side.push('top');
-      if (currentWave >= 12) side.push('left');
+      const side = ['right'];
+      if (currentWave >= 4) {
+        side.push('bottom');
+      }
+      if (currentWave >= 8) {
+        side.push('top');
+      }
+      if (currentWave >= 12) {
+        side.push('left');
+      }
       const chosen = side[Math.floor(Math.random() * side.length)];
       if (chosen === 'right') {
         sx = MAP_HEIGHT + OUTER_MARGIN * Math.random();

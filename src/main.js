@@ -1,7 +1,7 @@
 import { regionSpawnPoints, waveSchedule, assetsToLoad } from './constants.js';
 import { computeWaveComposition } from './game/waves.js';
 import { preloadImages } from './utils.js';
-import { initSprites, drawSprites, isDrawingSuspended } from './sprites.js';
+import { initSprites, drawSprites } from './sprites.js';
 import { triggerWaveAlarm as triggerAlarm } from './audio.js';
 import {
   updateMoney as uiUpdateMoney,
@@ -45,25 +45,28 @@ let money = 3600,
   nextTargetRegion = null,
   usedSpawnPoints = [],
   isAirportSpawning = !1,
-  progressBarMarker = null,
-  preMenu = document.getElementById('preMenu'),
-  startBtn = document.getElementById('startBtn'),
-  startRightBtn = document.getElementById('startRightBtn'),
-  startHardcoreBtn = document.getElementById('startHardcoreBtn'),
-  loading = document.getElementById('loading'),
-  loadingText = document.getElementById('loadingText'),
-  loadingProgress = document.getElementById('loadingProgress'),
-  controlPanel = document.getElementById('controlPanel'),
-  dragHandle = document.getElementById('dragHandle'),
-  pvoMenu = document.getElementById('pvoMenu'),
-  waveDisplay = document.getElementById('waveDisplay'),
-  scoreDisplay = document.getElementById('scoreDisplay'),
-  moneyDisplay = document.getElementById('money'),
-  alarmIndicator = document.getElementById('alarmIndicator'),
-  alarmSound = document.getElementById('alarmSound'),
-  soundButton = document.getElementById('soundButton'),
-  speedButtons = document.getElementById('speedButtons'),
-  soundButtonContainer = document.getElementById('soundButtonContainer');
+  // Счетчик покупок ПВО (для динамического ценообразования)
+  pvoPurchaseCounts = {},
+  progressBarMarker = null;
+// Статические DOM‑узлы (не переназначаются)
+const preMenu = document.getElementById('preMenu');
+const startBtn = document.getElementById('startBtn');
+const startRightBtn = document.getElementById('startRightBtn');
+const startHardcoreBtn = document.getElementById('startHardcoreBtn');
+const loading = document.getElementById('loading');
+const loadingText = document.getElementById('loadingText');
+const loadingProgress = document.getElementById('loadingProgress');
+const controlPanel = document.getElementById('controlPanel');
+const dragHandle = document.getElementById('dragHandle');
+const pvoMenu = document.getElementById('pvoMenu');
+const waveDisplay = document.getElementById('waveDisplay');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const moneyDisplay = document.getElementById('money');
+const alarmIndicator = document.getElementById('alarmIndicator');
+const alarmSound = document.getElementById('alarmSound');
+const soundButton = document.getElementById('soundButton');
+const speedButtons = document.getElementById('speedButtons');
+const soundButtonContainer = document.getElementById('soundButtonContainer');
 let __loadingShownAt = 0;
 // Test mode flag (accelerate timings for CI/E2E when ?test=1)
 let __testMode = false;
@@ -71,16 +74,27 @@ try {
   const q = new URLSearchParams(location.search);
   __testMode = q.get('test') === '1' || q.get('test') === 'true';
 } catch {}
+// Early restore of sound preference so start click respects saved mute
+try {
+  const ss = localStorage.getItem('isSoundOn');
+  if (ss !== null) {
+    isSoundOn = JSON.parse(ss);
+  }
+} catch {}
 // preloadImages now imported from ./src/utils.js
 function launchGame() {
   // If an end-game overlay exists from previous session, remove it
   try {
     const ov = document.getElementById('endGameOverlay');
-    if (ov) ov.remove();
+    if (ov) {
+      ov.remove();
+    }
   } catch {}
   try {
     const vv = document.getElementById('victoryOverlay');
-    if (vv) vv.remove();
+    if (vv) {
+      vv.remove();
+    }
   } catch {}
   ((startBtn.disabled = !0),
     (startRightBtn.disabled = !0),
@@ -113,8 +127,8 @@ function launchGame() {
   if (bg) {
     try {
       bg.muted = !isSoundOn;
-      bg.currentTime = 0;
-      bg.play();
+      // Не запускаємо музику до повної ініціалізації карти
+      bg.pause();
     } catch {}
   }
   launchGame();
@@ -129,8 +143,7 @@ function launchGame() {
     if (bg) {
       try {
         bg.muted = !isSoundOn;
-        bg.currentTime = 0;
-        bg.play();
+        bg.pause();
       } catch {}
     }
     launchGame();
@@ -145,8 +158,7 @@ function launchGame() {
     if (bg) {
       try {
         bg.muted = !isSoundOn;
-        bg.currentTime = 0;
-        bg.play();
+        bg.pause();
       } catch {}
     }
     launchGame();
@@ -161,7 +173,9 @@ let map,
 try {
   const w = window || globalThis;
   // Експортуємо Leaflet як глобальний `L` для модулів, що очікують глобал
-  if (!w.L) w.L = L;
+  if (!w.L) {
+    w.L = L;
+  }
   w.__stats = {
     get drones() {
       return drones.length;
@@ -213,14 +227,20 @@ function initializeMapAndGame() {
     pvoPurchaseCounts = {};
     // Clear UI and previous map layers if present
     try {
-      if (map && typeof map.remove === 'function') map.remove();
+      if (map && typeof map.remove === 'function') {
+        map.remove();
+      }
     } catch {}
     try {
       const mapEl = document.getElementById('map');
-      if (mapEl) mapEl.innerHTML = '';
+      if (mapEl) {
+        mapEl.innerHTML = '';
+      }
     } catch {}
     try {
-      if (pvoMenu) pvoMenu.innerHTML = '';
+      if (pvoMenu) {
+        pvoMenu.innerHTML = '';
+      }
     } catch {}
   } catch {}
   accumulatedGameTime = 0;
@@ -231,7 +251,7 @@ function initializeMapAndGame() {
     mapPixelCanvas = init.pixelCanvas;
     // Перевірка по альфі доступна одразу після onload карти (див. initLeafletWithPixelCanvas)
   }
-  let initRegion =
+  const initRegion =
     Object.keys(regionSpawnPoints)[
       Math.floor(Math.random() * Object.keys(regionSpawnPoints).length)
     ];
@@ -248,21 +268,31 @@ function initializeMapAndGame() {
     (function restorePrefs() {
       try {
         const ss = localStorage.getItem('isSoundOn');
-        if (ss !== null) isSoundOn = JSON.parse(ss);
+        if (ss !== null) {
+          isSoundOn = JSON.parse(ss);
+        }
         const gs = localStorage.getItem('gameSpeed');
-        if (gs !== null) gameSpeed = Math.max(0, Math.min(3, JSON.parse(gs)));
+        if (gs !== null) {
+          gameSpeed = Math.max(0, Math.min(3, JSON.parse(gs)));
+        }
       } catch {}
-      if (!(gameSpeed >= 1 && gameSpeed <= 3)) gameSpeed = 1; // не стартуємо у паузі
+      if (!(gameSpeed >= 1 && gameSpeed <= 3)) {
+        gameSpeed = 1;
+      } // не стартуємо у паузі
       soundButton.textContent = isSoundOn ? '🔊' : '🔇';
       // Синхронизируем реальное состояние звука с иконкой ещё до первого клика
-      if (alarmSound) alarmSound.muted = !isSoundOn;
+      if (alarmSound) {
+        alarmSound.muted = !isSoundOn;
+      }
     })(),
     (soundButton.onclick = () => {
       isSoundOn = !isSoundOn;
       soundButton.textContent = isSoundOn ? '🔊' : '🔇';
       alarmSound.muted = !isSoundOn;
       const bg = document.getElementById('bgMusic');
-      if (bg) bg.muted = !isSoundOn;
+      if (bg) {
+        bg.muted = !isSoundOn;
+      }
       try {
         localStorage.setItem('isSoundOn', JSON.stringify(isSoundOn));
       } catch {}
@@ -363,7 +393,9 @@ function initializeMapAndGame() {
           .map((s) => s.trim())
           .filter(Boolean);
         const wantAutoPan = dbg.includes('autopan') || dbg.includes('points');
-        if (!wantAutoPan) return;
+        if (!wantAutoPan) {
+          return;
+        }
         let done = false;
         const id = setInterval(() => {
           if (done) {
@@ -381,7 +413,9 @@ function initializeMapAndGame() {
         }, 200);
         // Safety stop after 8s to avoid runaway timer
         setTimeout(() => {
-          if (!done) clearInterval(id);
+          if (!done) {
+            clearInterval(id);
+          }
         }, 8000);
       } catch {}
     })(),
@@ -407,7 +441,9 @@ function initializeMapAndGame() {
           .map((s) => s.trim())
           .filter(Boolean);
         const want = dbg.includes('points') || dbg.includes('dots') || dbg.includes('fallback');
-        if (!want) return;
+        if (!want) {
+          return;
+        }
         let stopped = false;
         const id = setInterval(() => {
           if (stopped) {
@@ -417,7 +453,9 @@ function initializeMapAndGame() {
           try {
             const w = window || globalThis;
             const s = w.__stats?.sprites;
-            if (!s) return;
+            if (!s) {
+              return;
+            }
             const sum = (s.drawn?.drones || 0) + (s.drawn?.rockets || 0);
             if (sum > 0) {
               stopped = true;
@@ -432,7 +470,9 @@ function initializeMapAndGame() {
           } catch {}
         }, 250);
         setTimeout(() => {
-          if (!stopped) clearInterval(id);
+          if (!stopped) {
+            clearInterval(id);
+          }
         }, 10000);
       } catch {}
     })(),
@@ -482,12 +522,11 @@ function initializeMapAndGame() {
               return;
             }
           }
-          let purchases;
+          const purchases = pvoPurchaseCounts[selectedPVO.name] || 0;
           if (pvoList.length >= MAX_PVO_COUNT) {
             alert(`Максимальна кількість ППО на карті — ${MAX_PVO_COUNT}. Покращи існуючі!`);
             return;
           }
-          purchases = pvoPurchaseCounts[selectedPVO.name] || 0;
           const price = Math.floor(selectedPVO.price * Math.pow(1.2, purchases));
           if (money < price) {
             alert(`Недостатньо коштів, потрібно ${Math.round(price)} карбованців.`);
@@ -506,7 +545,7 @@ function initializeMapAndGame() {
             fillColor: color,
             fillOpacity: 0.2,
           }).addTo(map);
-          let marker = L.marker(evt.latlng, { icon }).addTo(map);
+          const marker = L.marker(evt.latlng, { icon }).addTo(map);
           const unit = {
             latlng: evt.latlng,
             center: evt.latlng,
@@ -570,6 +609,13 @@ function initializeMapAndGame() {
   const bgEl = document.getElementById('bgMusic');
   if (bgEl) {
     bgEl.muted = !isSoundOn;
+    try {
+      if (isSoundOn) {
+        bgEl.play();
+      } else {
+        bgEl.pause();
+      }
+    } catch {}
   }
   requestAnimationFrame(gameLoop);
   // movement/combat loops
@@ -631,66 +677,66 @@ function initializeMapAndGame() {
     };
   } catch {}
 }
-function activateDefensePoint(e, t) {
-  var a, n, o, r, l;
-  Array.isArray(t) && Number.isFinite(t[0]) && Number.isFinite(t[1])
-    ? (([a, n] = t),
-      (o = Math.random() < 0.5 ? 'assets/tet.png' : 'assets/gas.png'),
-      (r = L.icon({
-        iconUrl: o,
-        iconSize: [60, 60],
-        iconAnchor: [30, 30],
-        popupAnchor: [0, -30],
-      })),
-      (r = L.marker([a, n], { icon: r }).addTo(map).bindPopup('🎯 Ціль')),
-      (l = L.circle([a, n], {
-        radius: 100,
-        color: 'red',
-        fillColor: '#ff4444',
-        fillOpacity: 0.2,
-        dashArray: '4, 4',
-        interactive: !1,
-      }).addTo(map)),
-      defensePoints.push({
-        lat: a,
-        lng: n,
-        marker: r,
-        noBuildCircle: l,
-        alive: !0,
-      }),
-      console.log(`Activated defense point ${e} at [${a}, ${n}] with icon ` + o))
-    : console.error(`Invalid coords for defense point ${e}:`, t);
-}
-function activateAirport(e) {
-  var [e, t] = e,
-    a = L.icon({
-      iconUrl: 'assets/aeroport.png',
-      iconSize: [55, 55],
-      iconAnchor: [25, 25],
-      popupAnchor: [0, 25],
-    }),
-    a = L.marker([e, t], { icon: a }).addTo(map).bindPopup('✈️ Аеропорт'),
-    n = L.circle([e, t], {
-      radius: 180,
-      color: '#1f8cff',
-      fillColor: '#1f8cff',
+function activateDefensePoint(index, coords) {
+  if (Array.isArray(coords) && Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
+    const [lat, lng] = coords;
+    const iconUrl = Math.random() < 0.5 ? 'assets/tet.png' : 'assets/gas.png';
+    const icon = L.icon({
+      iconUrl,
+      iconSize: [60, 60],
+      iconAnchor: [30, 30],
+      popupAnchor: [0, -30],
+    });
+    const marker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('🎯 Ціль');
+    const noBuildCircle = L.circle([lat, lng], {
+      radius: 100,
+      color: 'red',
+      fillColor: '#ff4444',
       fillOpacity: 0.2,
       dashArray: '4, 4',
-      interactive: !1,
+      interactive: false,
     }).addTo(map);
-  ((airport = {
-    lat: e,
-    lng: t,
-    marker: a,
-    noBuildCircle: n,
+    defensePoints.push({
+      lat,
+      lng,
+      marker,
+      noBuildCircle,
+      alive: !0,
+    });
+    console.log(`Activated defense point ${index} at [${lat}, ${lng}] with icon ${iconUrl}`);
+  } else {
+    console.error(`Invalid coords for defense point ${index}:`, coords);
+  }
+}
+function activateAirport(coords) {
+  const [lat, lng] = coords;
+  const icon = L.icon({
+    iconUrl: 'assets/aeroport.png',
+    iconSize: [55, 55],
+    iconAnchor: [25, 25],
+    popupAnchor: [0, 25],
+  });
+  const marker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('✈️ Аеропорт');
+  const noBuildCircle = L.circle([lat, lng], {
+    radius: 180,
+    color: '#1f8cff',
+    fillColor: '#1f8cff',
+    fillOpacity: 0.2,
+    dashArray: '4, 4',
+    interactive: false,
+  }).addTo(map);
+  airport = {
+    lat,
+    lng,
+    marker,
+    noBuildCircle,
     alive: !0,
     radius: 180,
-  }),
-    (isAirportSpawning = !1),
-    console.log(`Activated airport at [${e}, ${t}]`),
-    pvoApi && pvoApi.updatePvoPurchaseAvailability());
+  };
+  isAirportSpawning = !1;
+  console.log(`Activated airport at [${lat}, ${lng}]`);
+  pvoApi && pvoApi.updatePvoPurchaseAvailability();
 }
-let pvoPurchaseCounts = {};
 function triggerWaveAlarm() {
   triggerAlarm(isSoundOn, alarmSound, alarmIndicator, gameSpeed);
 }
@@ -866,13 +912,20 @@ function endGame() {
       // Прибираємо оверлей та одразу переініціалізуємо гру (без стартового меню)
       try {
         const ov = document.getElementById('endGameOverlay');
-        if (ov) ov.remove();
+        if (ov) {
+          ov.remove();
+        }
       } catch {}
       try {
         preMenu.style.display = 'none';
       } catch {}
       // Повний перезапуск стану й карти, додатково — скроль угору контейнера
-      try { const mapEl = document.getElementById('map'); if (mapEl) mapEl.scrollTop = mapEl.scrollLeft = 0; } catch {}
+      try {
+        const mapEl = document.getElementById('map');
+        if (mapEl) {
+          mapEl.scrollTop = mapEl.scrollLeft = 0;
+        }
+      } catch {}
       initializeMapAndGame();
     };
   } catch {}
@@ -892,21 +945,49 @@ function updateUI() {
 function showVictoryScreen(e) {
   uiShowVictoryScreen(e);
 }
-function makeDraggable(t, e) {
-  let a = !1,
-    n,
-    o;
-  e.onmousedown = function (e) {
-    ((a = !0),
-      (n = e.clientX - t.offsetLeft),
-      (o = e.clientY - t.offsetTop),
-      (document.onmousemove = function (e) {
-        a && ((t.style.left = e.clientX - n + 'px'), (t.style.top = e.clientY - o + 'px'));
-      }),
-      (document.onmouseup = function () {
-        ((a = !1), (document.onmousemove = null), (document.onmouseup = null));
-      }));
-  };
+function makeDraggable(target, handle) {
+  // Pointer Events: коректна робота на миші і дотиках
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let baseLeft = 0;
+  let baseTop = 0;
+
+  function onPointerDown(ev) {
+    try {
+      handle.setPointerCapture?.(ev.pointerId);
+    } catch {}
+    dragging = true;
+    startX = ev.clientX;
+    startY = ev.clientY;
+    baseLeft = target.offsetLeft;
+    baseTop = target.offsetTop;
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    ev.preventDefault();
+  }
+  function onPointerMove(ev) {
+    if (!dragging) {
+      return;
+    }
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    target.style.left = baseLeft + dx + 'px';
+    target.style.top = baseTop + dy + 'px';
+  }
+  function onPointerUp(ev) {
+    dragging = false;
+    try {
+      handle.releasePointerCapture?.(ev.pointerId);
+    } catch {}
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+  }
+
+  try {
+    handle.style.touchAction = 'none';
+  } catch {}
+  handle.addEventListener('pointerdown', onPointerDown);
 }
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';

@@ -75,12 +75,24 @@ export function setupSpeedAndSoundControls(ctx) {
   function applySoundUi(on) {
     soundButton.textContent = on ? '🔊' : '🔇';
     try {
-      if (alarmSound) alarmSound.muted = !on;
+      if (alarmSound) {
+        alarmSound.muted = !on;
+        alarmSound.volume = on ? 1 : 0;
+        if (!on) {
+          alarmSound.pause();
+        }
+      }
     } catch {}
     try {
       const bg = document.getElementById('bgMusic');
       if (bg) {
         bg.muted = !on;
+        bg.volume = on ? 1 : 0;
+        if (on && bg.paused) {
+          bg.play().catch(() => {});
+        } else if (!on && !bg.paused) {
+          bg.pause();
+        }
       }
     } catch {}
   }

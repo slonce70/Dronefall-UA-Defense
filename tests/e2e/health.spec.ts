@@ -9,4 +9,3 @@ test('Leaflet is available and map boots', async ({ page }) => {
   // Control panel visible means init passed
   await expect(page.locator('#controlPanel')).toBeVisible();
 });
-

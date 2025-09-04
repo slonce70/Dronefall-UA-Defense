@@ -1,23 +1,10 @@
 // Сервіс‑воркер з акуратним кешуванням.
 // Часткові відповіді (206) не кешуються; запити з Range пропускаються — це усуває проблеми завантаження ресурсів.
 
-// Versioned runtime cache; bump suffix on releases
-const CACHE_NAME = 'dronefall-runtime-v5';
-// Pre-cache manifest (relative paths; resolved against SW scope at install)
-const PRE_CACHE = [
-  // map and core sprites (both webp and png for safety)
-  'assets/map.webp',
-  'assets/map.png',
-  'assets/drone.webp',
-  'assets/drone.png',
-  'assets/heavy-drone.webp',
-  'assets/heavy-drone.png',
-  'assets/rocket1.webp',
-  'assets/rocket1.png',
-  'assets/explosion.gif',
-  'assets/telegram-icon.png',
-  'assets/tiktok-logo.png',
-];
+// Версія runtime‑кеша; підвищуємо суфікс при релізах
+const CACHE_NAME = 'dronefall-runtime-v6';
+// Від статичного PRE_CACHE відмовляємося — покладаємося на dist/precache-manifest.json
+const PRE_CACHE = [];
 
 function scopeUrl(path) {
   try {
@@ -32,12 +19,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const c = await caches.open(CACHE_NAME);
-      if (Array.isArray(PRE_CACHE) && PRE_CACHE.length) {
-        try {
-          const list = PRE_CACHE.map((p) => scopeUrl(p));
-          await c.addAll(list);
-        } catch {}
-      }
+      // Статичний список порожній; основний pre-cache — з_manifest_а збірки
       try {
         const res = await fetch(new URL('precache-manifest.json', self.registration.scope), {
           cache: 'no-store',
@@ -93,13 +75,13 @@ self.addEventListener('fetch', (event) => {
             .match(req)
             .then((r) => r || caches.match(new URL('index.html', self.registration.scope)))
         )
-      );
-      return;
-    }
+    );
+    return;
+  }
 
   // Статика: Cache‑first, але не кешуємо partial (206)
   const isStatic =
-    /\.(png|gif|jpg|jpeg|webp|mp3|css|js)$/i.test(url.pathname) ||
+    /\.(png|gif|jpg|jpeg|webp|svg|mp3|css|js|woff2?|ttf|otf)$/i.test(url.pathname) ||
     url.pathname.startsWith('/assets') ||
     url.pathname.startsWith('/_externos');
   if (!isStatic) return;

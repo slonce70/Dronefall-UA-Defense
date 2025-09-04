@@ -14,7 +14,9 @@ export function getBeam(map, color = 'red') {
 
 export function releaseBeam(map, pl) {
   try {
-    if (map && pl && map.hasLayer(pl)) map.removeLayer(pl);
+    if (map && pl && map.hasLayer(pl)) {
+      map.removeLayer(pl);
+    }
   } catch {}
   pool.push(pl);
 }

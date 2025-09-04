@@ -7,9 +7,26 @@
     <meta name="theme-color" content="#0b0b0b" />
     <!-- Мінімальні критичні стилі: темний фон + покриття preMenu щоб уникнути «білої» вспишки -->
     <style>
-      html,body{margin:0;height:100%;background:#0b0b0b}
-      #preMenu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0b0b;z-index:1000}
-      #preMenu .overlay{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0b0b;
+      }
+      #preMenu {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b0b0b;
+        z-index: 1000;
+      }
+      #preMenu .overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+      }
     </style>
     <!-- Preload шпалер титульного екрану для швидшого першого кадру -->
     <link rel="preload" as="image" href="/assets/wallpaper.png" />
@@ -109,14 +126,24 @@
     </div>
 
     <script>
-      document.addEventListener(
-        'click',
-        () => {
-          const music = document.getElementById('bgMusic');
-          if (music && music.paused) music.play();
-        },
-        { once: true }
-      );
+      // Ініціалізуємо стан mute для фонової музики якомога раніше — до першого кліку
+      (function () {
+        try {
+          const bg = document.getElementById('bgMusic');
+          const alarm = document.getElementById('alarmSound');
+          if (!bg && !alarm) return;
+          let on = true;
+          try {
+            const ss = localStorage.getItem('isSoundOn');
+            if (ss !== null) on = JSON.parse(ss);
+          } catch {}
+          if (bg) bg.muted = !on;
+          if (alarm) alarm.muted = !on;
+        } catch {}
+      })();
+
+      // Відмовляємося від глобального автозапуску по кліку —
+      // музику запускаємо виключно у обробниках кнопок старту і лише якщо звук увімкнено.
 
       // Клавіші: Пробіл — пауза; 1/2/3 — швидкість; M — звук
       document.addEventListener('keydown', (e) => {

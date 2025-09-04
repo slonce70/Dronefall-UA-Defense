@@ -42,6 +42,8 @@ export function applyUpgradeStats(current, base) {
 
 /** Чи дозволений апгрейд: не для noUpgrade і не більше 10 разів */
 export function canUpgrade(noUpgrade, upgradeCount) {
-  if (noUpgrade) return false;
+  if (noUpgrade) {
+    return false;
+  }
   return (upgradeCount || 0) < 10;
 }

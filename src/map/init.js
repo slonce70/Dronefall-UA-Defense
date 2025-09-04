@@ -28,7 +28,9 @@ export function initLeafletWithPixelCanvas(containerId = 'map') {
   img.onload = () => {
     pixelCanvas.width = img.width;
     pixelCanvas.height = img.height;
-    if (ctx) ctx.drawImage(img, 0, 0);
+    if (ctx) {
+      ctx.drawImage(img, 0, 0);
+    }
     // Готово: відтепер можна виконувати хіт‑тест по пікселю (див. src/map.js)
   };
   // ВАЖЛИВО: для хіт‑тесту використовуємо PNG, щоб альфа‑канал відповідав оверлею без артефактів.

@@ -1,12 +1,18 @@
 // Оновлення UI‑поля грошей
 export function updateMoney(el, money) {
-  if (el) el.textContent = `💶 ${money}`;
+  if (el) {
+    el.textContent = `💶 ${money}`;
+  }
 }
 
 export function updateUI(moneyEl, waveEl, scoreEl, money, wave, score) {
   updateMoney(moneyEl, money);
-  if (waveEl) waveEl.textContent = `🌊 ${wave}`;
-  if (scoreEl) scoreEl.textContent = `🎯 ${score}`;
+  if (waveEl) {
+    waveEl.textContent = `🌊 ${wave}`;
+  }
+  if (scoreEl) {
+    scoreEl.textContent = `🎯 ${score}`;
+  }
 }
 
 export function showTargetNotification(region, gameSpeed = 1) {
@@ -36,7 +42,9 @@ export function showVictoryScreen(html) {
   // Гарантуємо, що існує лише один оверлей перемоги
   try {
     const old = document.getElementById('victoryOverlay');
-    if (old) old.remove();
+    if (old) {
+      old.remove();
+    }
   } catch {}
   const t = document.createElement('div');
   t.id = 'victoryOverlay';

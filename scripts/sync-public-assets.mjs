@@ -38,4 +38,3 @@ main().catch((e) => {
   console.error('Failed to sync public assets:', e);
   process.exit(1);
 });
-

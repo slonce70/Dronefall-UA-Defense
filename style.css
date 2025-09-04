@@ -29,6 +29,10 @@ html {
   display: none;
   color: #fff;
 }
+#dragHandle {
+  touch-action: none; /* дозволяє перетяг без скролу на мобільних */
+  cursor: move;
+}
 #controlPanel .panel-body {
   display: flex;
   flex-direction: column;

@@ -41,14 +41,13 @@ import { calcPurchasePrice, calcSellRefund, calcUpgradePrice } from '../pvo/math
 export function setupPvoMenu(ctx) {
   const { pvoTypes, pvoMenu, pvoColorMap, map } = ctx;
   // Внутрішні кнопки/елементи меню
-  let sellPVOButton;
-  let movePVOButton;
-  let upgradePVOButton;
-  let upgradeInfo;
+  // (оголошуються як const у момент створення)
 
   // Створити картки ППО (окрім Аеропорта)
   pvoTypes.forEach((item) => {
-    if (item.name === 'Аеропорт') return;
+    if (item.name === 'Аеропорт') {
+      return;
+    }
     const el = document.createElement('div');
     el.className = 'pvo-item';
     el.innerHTML = `
@@ -73,9 +72,15 @@ export function setupPvoMenu(ctx) {
       ctx.setBuyingMode(true);
       document.querySelectorAll('.pvo-item').forEach((e) => e.classList.remove('selected'));
       el.classList.add('selected');
-      if (sellPVOButton) sellPVOButton.disabled = true;
-      if (upgradePVOButton) upgradePVOButton.disabled = true;
-      if (upgradeInfo) upgradeInfo.textContent = '';
+      if (sellPVOButton) {
+        sellPVOButton.disabled = true;
+      }
+      if (upgradePVOButton) {
+        upgradePVOButton.disabled = true;
+      }
+      if (upgradeInfo) {
+        upgradeInfo.textContent = '';
+      }
     };
     pvoMenu.appendChild(el);
   });
@@ -88,14 +93,14 @@ export function setupPvoMenu(ctx) {
   airportBtn.style.marginTop = '10px';
   pvoMenu.appendChild(airportBtn);
 
-  movePVOButton = document.createElement('button');
+  const movePVOButton = document.createElement('button');
   movePVOButton.className = 'pvo-button';
   movePVOButton.innerHTML = '✈️<br>Перемістити F-16';
   movePVOButton.disabled = true;
   movePVOButton.style.marginTop = '10px';
   pvoMenu.appendChild(movePVOButton);
 
-  sellPVOButton = document.createElement('button');
+  const sellPVOButton = document.createElement('button');
   sellPVOButton.className = 'pvo-button';
   sellPVOButton.id = 'sellPVOButton';
   sellPVOButton.innerHTML = '💲<br>Продати ППО';
@@ -103,7 +108,7 @@ export function setupPvoMenu(ctx) {
   sellPVOButton.style.marginTop = '10px';
   pvoMenu.appendChild(sellPVOButton);
 
-  upgradePVOButton = document.createElement('button');
+  const upgradePVOButton = document.createElement('button');
   upgradePVOButton.className = 'pvo-button';
   upgradePVOButton.id = 'upgradePVOButton';
   upgradePVOButton.innerHTML = '📈<br>Покращити ППО<br>💶100';
@@ -111,7 +116,7 @@ export function setupPvoMenu(ctx) {
   upgradePVOButton.style.marginTop = '10px';
   pvoMenu.appendChild(upgradePVOButton);
 
-  upgradeInfo = document.createElement('div');
+  const upgradeInfo = document.createElement('div');
   upgradeInfo.id = 'upgradeInfo';
   upgradeInfo.style.marginTop = '10px';
   upgradeInfo.style.color = 'white';
@@ -185,17 +190,23 @@ export function setupPvoMenu(ctx) {
 
   sellPVOButton.onclick = () => {
     const sel = ctx.getSelectedPVO();
-    if (!sel) return;
+    if (!sel) {
+      return;
+    }
     const refund = calcSellRefund(sel.price, sel.upgradeCount);
     ctx.setMoney(ctx.getMoney() + refund);
     ctx.updateMoney();
     try {
       map.removeLayer(sel.marker);
-      if (sel.rangeCircle) map.removeLayer(sel.rangeCircle);
+      if (sel.rangeCircle) {
+        map.removeLayer(sel.rangeCircle);
+      }
     } catch {}
     const list = ctx.pvoList; // посилання на масив
     const idx = list.indexOf(sel);
-    if (idx !== -1) list.splice(idx, 1);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+    }
     updatePvoPurchaseAvailability();
     ctx.setSelectedPVO(null);
     // Скидаємо UI вибору після продажу — як в оригіналі
@@ -203,15 +214,23 @@ export function setupPvoMenu(ctx) {
     sellPVOButton.innerHTML = '💲 Продати ППО';
     upgradePVOButton.disabled = true;
     upgradeInfo.textContent = '';
-    if (movePVOButton) movePVOButton.disabled = true;
+    if (movePVOButton) {
+      movePVOButton.disabled = true;
+    }
     document.querySelectorAll('.pvo-item').forEach((e) => e.classList.remove('selected'));
   };
 
   upgradePVOButton.onclick = () => {
     const sel = ctx.getSelectedPVO();
-    if (!sel) return;
-    if (sel.noUpgrade) return alert('❌ F-16 та Аеропорт не можна покращувати!');
-    if (sel.upgradeCount >= 10) return alert('❌ Це ППО покращено вже 10 разів - більше не можна!');
+    if (!sel) {
+      return;
+    }
+    if (sel.noUpgrade) {
+      return alert('❌ F-16 та Аеропорт не можна покращувати!');
+    }
+    if (sel.upgradeCount >= 10) {
+      return alert('❌ Це ППО покращено вже 10 разів - більше не можна!');
+    }
     const price = calcUpgradePrice(sel.upgradeCount);
     if (ctx.getMoney() < price) {
       return alert(`Недостатньо коштів для покращення, потрібно: ${price} карбованців.`);
@@ -257,7 +276,9 @@ export function setupPvoMenu(ctx) {
     });
     if (name === 'Аеропорт') {
       const btn = document.getElementById('airportButton');
-      if (btn) btn.innerHTML = '🏢<br>Аеропорт<br>💶' + price;
+      if (btn) {
+        btn.innerHTML = '🏢<br>Аеропорт<br>💶' + price;
+      }
     }
   }
 
@@ -267,7 +288,9 @@ export function setupPvoMenu(ctx) {
     document.querySelectorAll('.pvo-item').forEach((el) => {
       const name = el.querySelector('b')?.textContent;
       const type = pvoTypes.find((p) => p.name === name);
-      if (!type) return;
+      if (!type) {
+        return;
+      }
       if (reachedLimit) {
         el.classList.add('disabled');
         el.onclick = () =>
@@ -315,7 +338,9 @@ export function setupPvoMenu(ctx) {
 
   function updateUpgradeButtonText() {
     const sel = ctx.getSelectedPVO();
-    if (!sel) return;
+    if (!sel) {
+      return;
+    }
     const price = calcUpgradePrice(sel.upgradeCount);
     upgradePVOButton.innerHTML = '📈 Покращити ППО<br>💶' + price;
   }

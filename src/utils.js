@@ -2,10 +2,14 @@
 
 let __supportsWebP = null;
 export function supportsWebP() {
-  if (__supportsWebP != null) return __supportsWebP;
+  if (__supportsWebP != null) {
+    return __supportsWebP;
+  }
   try {
     const c = document.createElement('canvas');
-    if (!c.getContext) return (__supportsWebP = false);
+    if (!c.getContext) {
+      return (__supportsWebP = false);
+    }
     __supportsWebP = c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
   } catch {
     __supportsWebP = false;
@@ -14,7 +18,9 @@ export function supportsWebP() {
 }
 
 function toWebpCandidate(src) {
-  if (/\.(png|jpg|jpeg)$/i.test(src)) return src.replace(/\.(png|jpg|jpeg)$/i, '.webp');
+  if (/\.(png|jpg|jpeg)$/i.test(src)) {
+    return src.replace(/\.(png|jpg|jpeg)$/i, '.webp');
+  }
   return null;
 }
 
@@ -62,7 +68,9 @@ export function preloadImages(assets, onProgress, onDone) {
       // м’який збій — продовжуємо
     }
     onProgress(Math.floor((loaded / total) * 100));
-    if (loaded === total) onDone();
+    if (loaded === total) {
+      onDone();
+    }
   }
 
   const canBitmap = typeof createImageBitmap === 'function';
@@ -78,12 +86,14 @@ export function preloadImages(assets, onProgress, onDone) {
       if (canBitmap && /\.(png|gif|jpg|jpeg|webp)$/i.test(src)) {
         try {
           const res = await fetch(src, { cache: cacheMode });
-          if (!res.ok) throw new Error('load-failed');
+          if (!res.ok) {
+            throw new Error('load-failed');
+          }
           const blob = await res.blob();
           await createImageBitmap(blob); // попереднє декодування
           tick(true);
           return;
-        } catch (e) {
+        } catch {
           // запасний шлях: оригінальне розширення
           const orig = withCacheBust(_src0);
           const res2 = await fetch(orig, { cache: cacheMode });
@@ -136,8 +146,8 @@ export function approximateBezierLength(p0, p1, p2, segments = 10) {
 }
 
 export function generateControlPoint(start, end) {
-  let dx = end[0] - start[0];
-  let dy = end[1] - start[1];
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
   const dist = Math.sqrt(dx * dx + dy * dy) || 1;
   const midX = start[0] + dx / 2;
   const midY = start[1] + dy / 2;

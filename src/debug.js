@@ -4,7 +4,9 @@ function isDebugFlagOn(key = 'spawns') {
   try {
     const q = new URLSearchParams(location.search);
     const v = q.get('debug');
-    if (!v) return false;
+    if (!v) {
+      return false;
+    }
     // Увімкнути, якщо debug=1, debug=true або список містить ключ (напр., debug=spawns)
     return v === '1' || v === 'true' || v.split(',').includes(key);
   } catch {
@@ -12,8 +14,10 @@ function isDebugFlagOn(key = 'spawns') {
   }
 }
 
-export function debugSpawn(map, start, target, type = 'light', gameSpeed = 1, ttlMs = 1500) {
-  if (!map || !isDebugFlagOn('spawns')) return;
+export function debugSpawn(map, start, target, _type = 'light', gameSpeed = 1, ttlMs = 1500) {
+  if (!map || !isDebugFlagOn('spawns')) {
+    return;
+  }
   try {
     const startMarker = L.circleMarker(start, {
       radius: 4,
@@ -51,7 +55,9 @@ export function debugSpawn(map, start, target, type = 'light', gameSpeed = 1, tt
 export function statsLogSpawn(type, start, target, wave) {
   try {
     const w = window || globalThis;
-    if (!w.__stats) return;
+    if (!w.__stats) {
+      return;
+    }
     const item = {
       t: Date.now(),
       type,
@@ -61,6 +67,8 @@ export function statsLogSpawn(type, start, target, wave) {
     };
     const arr = w.__stats.lastSpawns || (w.__stats.lastSpawns = []);
     arr.push(item);
-    if (arr.length > 100) arr.shift();
+    if (arr.length > 100) {
+      arr.shift();
+    }
   } catch {}
 }

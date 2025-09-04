@@ -1,5 +1,5 @@
 // Рендер спрайтів дронів та ракет на Canvas
-import { withCacheBust, setImageSrcWithFallback, bestImageSrc } from './utils.js';
+import { setImageSrcWithFallback } from './utils.js';
 
 let mapRef = null;
 let paneRef = null; // виділена панель для коректного порядку шарів
@@ -19,6 +19,7 @@ let imagesReadyFlag = false;
 let rafScheduled = false;
 let rafNeedRecalc = false;
 let drawingSuspended = false; // під час зуму не змінюємо геометрію, але малюємо
+let lastDebugMarkersRedraw = 0; // тротлінг оновлення debug-маркерів
 
 const images = {
   light: null,
@@ -34,11 +35,18 @@ function areImagesReady() {
 }
 
 function checkImagesReady() {
-  if (areImagesReady()) imagesReadyFlag = true;
+  if (areImagesReady()) {
+    imagesReadyFlag = true;
+    // щойно текстури готові — вимикаємо авто‑фолбек точок і перерисовуємо
+    autoPointsUntil = 0;
+    scheduleRedraw(true);
+  }
 }
 
 function updateCanvasPosition() {
-  if (!mapRef || !canvas) return;
+  if (!mapRef || !canvas) {
+    return;
+  }
   try {
     // Обчислити походження шару для верхнього‑лівого контейнера
     currentOrigin = mapRef.containerPointToLayerPoint([0, 0]);
@@ -50,7 +58,9 @@ function updateCanvasPosition() {
 }
 
 function ensureCanvas() {
-  if (!mapRef || !paneRef) return;
+  if (!mapRef || !paneRef) {
+    return;
+  }
   // Малюємо спрайти в окремій панелі над мапою, але під маркерами (z-index >= 601)
   const pane = paneRef;
   if (!canvas) {
@@ -61,12 +71,16 @@ function ensureCanvas() {
     canvas.style.pointerEvents = 'none';
     // Порядок шарів: нижче маркерів (600), вище оверлею мапи
     canvas.style.zIndex = '599';
-    if (pane && canvas.parentNode !== pane) pane.appendChild(canvas);
+    if (pane && canvas.parentNode !== pane) {
+      pane.appendChild(canvas);
+    }
     ctx = canvas.getContext('2d');
   } else {
     // Якщо канвас вже існує — гарантуємо, що він у потрібному контейнері
     if (pane && canvas.parentNode !== pane) {
-      try { pane.appendChild(canvas); } catch {}
+      try {
+        pane.appendChild(canvas);
+      } catch {}
     }
   }
   const size = mapRef.getSize();
@@ -89,7 +103,9 @@ function ensureCanvas() {
 
 function scheduleRedraw(recalc = false) {
   rafNeedRecalc = rafNeedRecalc || recalc;
-  if (rafScheduled) return;
+  if (rafScheduled) {
+    return;
+  }
   rafScheduled = true;
   requestAnimationFrame(() => {
     try {
@@ -97,8 +113,11 @@ function scheduleRedraw(recalc = false) {
         // під час зум‑анімації покладаємось на CSS‑масштаб Leaflet; нічого не перераховуємо
         return;
       }
-      if (rafNeedRecalc) ensureCanvas();
-      else updateCanvasPosition();
+      if (rafNeedRecalc) {
+        ensureCanvas();
+      } else {
+        updateCanvasPosition();
+      }
       drawSprites(lastDrones, lastRockets);
     } finally {
       rafScheduled = false;
@@ -194,7 +213,9 @@ export function initSprites(map) {
     scheduleRedraw(true);
   });
   map.on('move', () => {
-    if (!drawingSuspended) scheduleRedraw(false);
+    if (!drawingSuspended) {
+      scheduleRedraw(false);
+    }
   });
 }
 
@@ -206,7 +227,9 @@ export function isDrawingSuspended() {
 }
 
 export function drawSprites(drones, rockets) {
-  if (!mapRef) return;
+  if (!mapRef) {
+    return;
+  }
   try {
     const w = window || globalThis;
     if (w.__stats) {
@@ -235,7 +258,10 @@ export function drawSprites(drones, rockets) {
       if (drones.length > 0 || rockets.length > 0) {
         w.__stats.hasNonZeroDraw = true;
         w.__stats.lastDrawTime = Date.now();
-        if (!areImagesReady() && !autoPointsUntil) autoPointsUntil = Date.now() + 2000; // brief until textures ready
+        // короткочасно показуємо точки, поки текстури не готові (скорочено до ~0.8s)
+        if (!areImagesReady() && !autoPointsUntil) {
+          autoPointsUntil = Date.now() + 600;
+        }
       }
     }
   } catch {}
@@ -244,33 +270,42 @@ export function drawSprites(drones, rockets) {
   // Завжди рендерити дебаг‑маркери за запитом, незалежно від стану canvas
   if (debugMarkers && debugGroup) {
     try {
-      debugGroup.clearLayers();
-      const limitD = Math.min(50, drones.length);
-      for (let i = 0; i < limitD; i++) {
-        const a = drones[i];
-        L.circleMarker(a.position, {
-          radius: 6,
-          color: a.type === 'heavy' ? '#ff4444' : '#00ff88',
-          weight: 2,
-          fillOpacity: 0.9,
-        }).addTo(debugGroup);
-      }
-      const limitR = Math.min(20, rockets.length);
-      for (let i = 0; i < limitR; i++) {
-        const r = rockets[i];
-        L.circleMarker(r.position, {
-          radius: 6,
-          color: '#ffaa00',
-          weight: 2,
-          fillOpacity: 0.9,
-        }).addTo(debugGroup);
+      const now =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+      if (now - lastDebugMarkersRedraw >= 250) {
+        lastDebugMarkersRedraw = now;
+        debugGroup.clearLayers();
+        const limitD = Math.min(50, drones.length);
+        for (let i = 0; i < limitD; i++) {
+          const a = drones[i];
+          L.circleMarker(a.position, {
+            radius: 6,
+            color: a.type === 'heavy' ? '#ff4444' : '#00ff88',
+            weight: 2,
+            fillOpacity: 0.9,
+          }).addTo(debugGroup);
+        }
+        const limitR = Math.min(20, rockets.length);
+        for (let i = 0; i < limitR; i++) {
+          const r = rockets[i];
+          L.circleMarker(r.position, {
+            radius: 6,
+            color: '#ffaa00',
+            weight: 2,
+            fillOpacity: 0.9,
+          }).addTo(debugGroup);
+        }
       }
     } catch {}
   }
 
   // Якщо 2D‑контекст відсутній — спробувати створити; інакше пропустити малювання
-  if (!ctx) ensureCanvas();
-  if (!ctx) return;
+  if (!ctx) {
+    ensureCanvas();
+  }
+  if (!ctx) {
+    return;
+  }
   // очистити
   const size = mapRef.getSize();
   ctx.clearRect(0, 0, size.x, size.y);
@@ -311,13 +346,10 @@ export function drawSprites(drones, rockets) {
     // Обчислити обидва простори координат
     const cp = mapRef.latLngToContainerPoint([lat, lng]);
     const ptA = { x: cp.x, y: cp.y };
-    const inA =
-      ptA.x >= -100 && ptA.x <= sizeCss.x + 100 && ptA.y >= -100 && ptA.y <= sizeCss.y + 100;
+    // container bounds precheck (not used further; removal avoids lint warning)
     const origin = mapRef.containerPointToLayerPoint([0, 0]);
     const lp = mapRef.latLngToLayerPoint([lat, lng]);
     const ptB = { x: lp.x - origin.x, y: lp.y - origin.y };
-    const inB =
-      ptB.x >= -100 && ptB.x <= sizeCss.x + 100 && ptB.y >= -100 && ptB.y <= sizeCss.y + 100;
     // Якщо канвас на контейнері — беремо координати контейнера; інакше — від origin шару
     const pt = attachToContainer ? ptA : ptB;
     if (!img || !img.complete) {
@@ -398,7 +430,9 @@ export function drawSprites(drones, rockets) {
         ctx.arc(edge.x, edge.y, 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
-        if (edge.x >= 0 && edge.x <= size2.x && edge.y >= 0 && edge.y <= size2.y) drawnD++;
+        if (edge.x >= 0 && edge.x <= size2.x && edge.y >= 0 && edge.y <= size2.y) {
+          drawnD++;
+        }
       } else {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
@@ -418,7 +452,9 @@ export function drawSprites(drones, rockets) {
       const inB =
         ptB.x >= -100 && ptB.x <= size2.x + 100 && ptB.y >= -100 && ptB.y <= size2.y + 100;
       const pt = attachToContainer && inA ? ptA : inB ? ptB : inA ? ptA : ptB;
-      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) drawnD++;
+      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) {
+        drawnD++;
+      }
     }
   }
 
@@ -446,7 +482,9 @@ export function drawSprites(drones, rockets) {
         ctx.arc(edge.x, edge.y, 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
-        if (edge.x >= 0 && edge.x <= size2.x && edge.y >= 0 && edge.y <= size2.y) drawnR++;
+        if (edge.x >= 0 && edge.x <= size2.x && edge.y >= 0 && edge.y <= size2.y) {
+          drawnR++;
+        }
       } else {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
@@ -465,7 +503,9 @@ export function drawSprites(drones, rockets) {
       const inB =
         ptB.x >= -100 && ptB.x <= size2.x + 100 && ptB.y >= -100 && ptB.y <= size2.y + 100;
       const pt = attachToContainer && inA ? ptA : inB ? ptB : inA ? ptA : ptB;
-      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) drawnR++;
+      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) {
+        drawnR++;
+      }
     }
   }
 
@@ -483,8 +523,12 @@ export function drawSprites(drones, rockets) {
         const isDebugPoints =
           dbg.includes('points') || dbg.includes('dots') || dbg.includes('fallback');
         if (isDebugPoints) {
-          if (drones.length > 0 && drawnD === 0) drawnD = 1;
-          if (rockets.length > 0 && drawnR === 0) drawnR = 1;
+          if (drones.length > 0 && drawnD === 0) {
+            drawnD = 1;
+          }
+          if (rockets.length > 0 && drawnR === 0) {
+            drawnR = 1;
+          }
         }
       } catch {}
       w.__stats.sprites.drawn.drones = drawnD;
