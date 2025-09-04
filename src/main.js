@@ -304,29 +304,7 @@ function initializeMapAndGame() {
     }));
   // Initialize canvas sprite renderer early to avoid race conditions
   initSprites(map);
-  // Обробники кліків по мапі — винесені в окремий модуль
-  attachMapHandlers({
-    map,
-    isPointOnMap: (lat, lng) => isPointOnMap(lat, lng),
-    pvoColorMap,
-    getMoveMode: () => moveMode,
-    setMoveMode: (v) => (moveMode = v),
-    getMovingPVO: () => movingPVO,
-    setMovingPVO: (v) => (movingPVO = v),
-    getBuyingMode: () => buyingMode,
-    setBuyingMode: (v) => (buyingMode = v),
-    getSelectedPVO: () => selectedPVO,
-    setSelectedPVO: (v) => (selectedPVO = v),
-    getPvoList: () => pvoList,
-    getDefensePoints: () => defensePoints,
-    getAirport: () => airport,
-    getMaxPvoCount: () => MAX_PVO_COUNT,
-    getMoney: () => money,
-    setMoney: (v) => (money = v),
-    getPvoPurchaseCounts: () => pvoPurchaseCounts,
-    updateMoney,
-    pvoApi,
-  });
+  // Обробники кліків по мапі додамо після ініціалізації меню ППО (щоб pvoApi був готовий)
   function setGameSpeedWithCompensation(v) {
     const prev = gameSpeed;
     const now = performance.now();
@@ -401,6 +379,29 @@ function initializeMapAndGame() {
       getMovingPVO: () => movingPVO,
       activateAirport: (pos) => activateAirport(pos),
     })),
+    // Після ініціалізації меню ППО — підʼєднати обробники кліків по мапі (має доступ до pvoApi)
+    attachMapHandlers({
+      map,
+      isPointOnMap: (lat, lng) => isPointOnMap(lat, lng),
+      pvoColorMap,
+      getMoveMode: () => moveMode,
+      setMoveMode: (v) => (moveMode = v),
+      getMovingPVO: () => movingPVO,
+      setMovingPVO: (v) => (movingPVO = v),
+      getBuyingMode: () => buyingMode,
+      setBuyingMode: (v) => (buyingMode = v),
+      getSelectedPVO: () => selectedPVO,
+      setSelectedPVO: (v) => (selectedPVO = v),
+      getPvoList: () => pvoList,
+      getDefensePoints: () => defensePoints,
+      getAirport: () => airport,
+      getMaxPvoCount: () => MAX_PVO_COUNT,
+      getMoney: () => money,
+      setMoney: (v) => (money = v),
+      getPvoPurchaseCounts: () => pvoPurchaseCounts,
+      updateMoney,
+      pvoApi,
+    }),
     (spawner = setupSpawner({
       map,
       getDefensePoints: () => defensePoints,

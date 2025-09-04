@@ -125,12 +125,19 @@ export function attachMapHandlers(ctx) {
       updateMoney();
       const counts = getPvoPurchaseCounts();
       counts[selectedPVO.name] = purchases + 1;
-      pvoApi.updatePvoMenuPrice(selectedPVO.name);
+      // Спочатку вийти з режиму покупки і виділити юніт — це гарантує, що наступний клік не ставить нове ППО
       setBuyingMode(false);
-      setSelectedPVO(null);
-      pvoApi.updatePvoPurchaseAvailability();
-      document.querySelectorAll('.pvo-item').forEach((el) => el.classList.remove('selected'));
-      pvoApi.resetSelectionUi();
+      setSelectedPVO(unit);
+      // Оновити вітрину і стан кнопок безпечними викликами (pvoApi може бути підʼєднано пізніше)
+      try { pvoApi?.updatePvoMenuPrice?.(selectedPVO.name); } catch {}
+      try { pvoApi?.updatePvoPurchaseAvailability?.(); } catch {}
+      try { document.querySelectorAll('.pvo-item').forEach((el) => el.classList.remove('selected')); } catch {}
+      try { pvoApi?.setSellButtonEnabled?.(true); } catch {}
+      try { pvoApi?.setSellButtonRefund?.(Math.floor(0.75 * unit.price)); } catch {}
+      try { pvoApi?.setUpgradeButtonDisabled?.(!!unit.noUpgrade); } catch {}
+      try { pvoApi?.setUpgradeInfoText?.(`Покращено: 0 / 10`); } catch {}
+      try { pvoApi?.updateUpgradeButtonText?.(); } catch {}
+      try { pvoApi?.setMoveButtonEnabled?.(unit.name === 'F-16'); } catch {}
       return;
     }
 
@@ -166,4 +173,3 @@ export function attachMapHandlers(ctx) {
     }
   });
 }
-
