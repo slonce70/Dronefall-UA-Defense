@@ -38,12 +38,17 @@ export function setupSpeedAndSoundControls(ctx) {
 
   function applySpeedUi(gs) {
     [speed1, speed2, speed3].forEach((el) => el.classList.remove('active'));
+    // ARIA: позначити натиснуту кнопку швидкості
+    [speed1, speed2, speed3].forEach((el) => el.setAttribute('aria-pressed', 'false'));
     if (gs === 0) {
       pauseButton.textContent = '▶️';
+      pauseButton.setAttribute('aria-pressed', 'true');
     } else {
       pauseButton.textContent = '⏸️';
+      pauseButton.setAttribute('aria-pressed', 'false');
       const btn = gs >= 3 ? speed3 : gs >= 2 ? speed2 : speed1;
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
     }
   }
 

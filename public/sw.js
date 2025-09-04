@@ -41,12 +41,17 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-      )
-      .then(() => self.clients.claim())
+    (async () => {
+      // Увімкнути navigation preload для прискорення перших переходів
+      try {
+        if (self.registration.navigationPreload) {
+          await self.registration.navigationPreload.enable();
+        }
+      } catch {}
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+      await self.clients.claim();
+    })()
   );
 });
 
@@ -60,21 +65,31 @@ self.addEventListener('fetch', (event) => {
   if (req.headers && req.headers.has('range')) return;
 
   if (req.mode === 'navigate') {
-    // Спочатку мережа для навігації (Network‑first)
+    // Спочатку navigation preload або мережа, з кеш‑беком
     event.respondWith(
-      fetch(req)
-        .then((res) => {
+      (async () => {
+        try {
+          const preload = await event.preloadResponse;
+          if (preload) {
+            if (preload.ok && preload.status === 200) {
+              caches.open(CACHE_NAME).then((c) => c.put(req, preload.clone()));
+            }
+            return preload;
+          }
+        } catch {}
+        try {
+          const res = await fetch(req);
           if (res.ok && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+            caches.open(CACHE_NAME).then((c) => c.put(req, res.clone()));
           }
           return res;
-        })
-        .catch(() =>
-          caches
-            .match(req)
-            .then((r) => r || caches.match(new URL('index.html', self.registration.scope)))
-        )
+        } catch {
+          return (
+            (await caches.match(req)) ||
+            (await caches.match(new URL('index.html', self.registration.scope)))
+          );
+        }
+      })()
     );
     return;
   }

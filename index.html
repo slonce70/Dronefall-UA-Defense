@@ -90,16 +90,10 @@
           🌊 Хвиля - номер атаки.<br />
           🎯 Рахунок - кількість знищених цілей.
         </div>
-        <button
-          class="donate-btn"
-          onclick="(function(){var w=window.open('https://send.monobank.ua/jar/2JbpBYkhMv','_blank'); if(w) w.opener=null;})()"
-        >
+        <button id="donateZSU" class="donate-btn">
           💙 Донат на ЗСУ
         </button>
-        <button
-          class="donate-btn"
-          onclick="(function(){var w=window.open('https://send.monobank.ua/jar/z1H8hEA96','_blank'); if(w) w.opener=null;})()"
-        >
+        <button id="donateProject" class="donate-btn">
           💛 Підтримати проєкт
         </button>
         <div class="footer-links">
@@ -125,75 +119,7 @@
       ⚠️ Повторні пуски
     </div>
 
-    <script>
-      // Ініціалізуємо стан mute для фонової музики якомога раніше — до першого кліку
-      (function () {
-        try {
-          const bg = document.getElementById('bgMusic');
-          const alarm = document.getElementById('alarmSound');
-          if (!bg && !alarm) return;
-          let on = true;
-          try {
-            const ss = localStorage.getItem('isSoundOn');
-            if (ss !== null) on = JSON.parse(ss);
-          } catch {}
-          if (bg) bg.muted = !on;
-          if (alarm) alarm.muted = !on;
-        } catch {}
-      })();
-
-      // Відмовляємося від глобального автозапуску по кліку —
-      // музику запускаємо виключно у обробниках кнопок старту і лише якщо звук увімкнено.
-
-      // Клавіші: Пробіл — пауза; 1/2/3 — швидкість; M — звук
-      document.addEventListener('keydown', (e) => {
-        const pause = document.getElementById('pauseButton');
-        const s1 = document.getElementById('speed1x');
-        const s2 = document.getElementById('speed2x');
-        const s3 = document.getElementById('speed3x');
-        const snd = document.getElementById('soundButton');
-        if (!pause || !s1 || !s2 || !s3 || !snd) return;
-        if (e.key === ' ') {
-          e.preventDefault();
-          pause.click();
-        }
-        if (e.key === '1') s1.click();
-        if (e.key === '2') s2.click();
-        if (e.key === '3') s3.click();
-        if (e.key.toLowerCase() === 'm') snd.click();
-      });
-
-      // Реєструємо SW лише у продакшені; у dev (localhost) — автоматичне відписування
-      (function () {
-        if (!('serviceWorker' in navigator)) return;
-        const isLocal =
-          /^(localhost|127\.0\.0\.1)(:\\d+)?$/.test(location.host) ||
-          location.hostname.endsWith('.local');
-        if (isLocal) {
-          // Dev: гарантовано скасовуємо реєстрацію, щоб кеш не заважав розробці
-          navigator.serviceWorker
-            .getRegistrations()
-            .then((regs) => regs.forEach((r) => r.unregister()))
-            .catch(() => {});
-        } else {
-          window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(() => {
-              /* ignore */
-            });
-          });
-        }
-      })();
-
-      // Pause when tab is hidden (avoid in automated/browser tests)
-      if (!('webdriver' in navigator) || !navigator.webdriver) {
-        document.addEventListener('visibilitychange', () => {
-          const pause = document.getElementById('pauseButton');
-          if (document.hidden && pause && pause.textContent !== '▶️') {
-            pause.click();
-          }
-        });
-      }
-    </script>
+    <script type="module" src="/src/boot.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

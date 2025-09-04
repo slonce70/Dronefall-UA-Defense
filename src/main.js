@@ -20,6 +20,10 @@ import { setupPvoMenu } from './ui/pvoMenu.js';
 import { setupSpeedAndSoundControls } from './ui/controls.js';
 import { setupSpawner } from './game/spawnWave.js';
 import { initLeafletWithPixelCanvas } from './map/init.js';
+import { createWaveScheduler } from './core/waveScheduler.js';
+import { attachMapHandlers } from './ui/mapHandlers.js';
+import { createDefensePoint, createAirport } from './map/objects.js';
+import { makeDraggable } from './ui/draggable.js';
 
 // Логування в dev не приглушується — зручно для налагодження.
 let money = 3600,
@@ -199,6 +203,7 @@ try {
 let defensePoints = [];
 let pvoApi;
 let spawner;
+let scheduler;
 function initializeMapAndGame() {
   // Hard reset global state if this is a re-run (after game over or manual restart)
   try {
@@ -299,6 +304,29 @@ function initializeMapAndGame() {
     }));
   // Initialize canvas sprite renderer early to avoid race conditions
   initSprites(map);
+  // Обробники кліків по мапі — винесені в окремий модуль
+  attachMapHandlers({
+    map,
+    isPointOnMap: (lat, lng) => isPointOnMap(lat, lng),
+    pvoColorMap,
+    getMoveMode: () => moveMode,
+    setMoveMode: (v) => (moveMode = v),
+    getMovingPVO: () => movingPVO,
+    setMovingPVO: (v) => (movingPVO = v),
+    getBuyingMode: () => buyingMode,
+    setBuyingMode: (v) => (buyingMode = v),
+    getSelectedPVO: () => selectedPVO,
+    setSelectedPVO: (v) => (selectedPVO = v),
+    getPvoList: () => pvoList,
+    getDefensePoints: () => defensePoints,
+    getAirport: () => airport,
+    getMaxPvoCount: () => MAX_PVO_COUNT,
+    getMoney: () => money,
+    setMoney: (v) => (money = v),
+    getPvoPurchaseCounts: () => pvoPurchaseCounts,
+    updateMoney,
+    pvoApi,
+  });
   function setGameSpeedWithCompensation(v) {
     const prev = gameSpeed;
     const now = performance.now();
@@ -477,6 +505,8 @@ function initializeMapAndGame() {
       } catch {}
     })(),
     map.on('click', (evt) => {
+      // Перенесено в attachMapHandlers — цей хендлер нічого не робить
+      return;
       // Хіт‑тест по альфі доступний
       if (moveMode && movingPVO) {
         if (isPointOnMap(evt.latlng.lat, evt.latlng.lng)) {
@@ -618,6 +648,34 @@ function initializeMapAndGame() {
     } catch {}
   }
   requestAnimationFrame(gameLoop);
+  // Планувальник хвиль (підказки/активації/запуск)
+  scheduler = createWaveScheduler({
+    waveSchedule,
+    regionSpawnPoints,
+    allDefensePoints,
+    usedSpawnPoints,
+    getTestMode: () => __testMode,
+    getGameOver: () => gameOver,
+    getGameWon: () => gameWon,
+    getRightOnlyMode: () => rightOnlyMode,
+    getHardcoreMode: () => hardcoreMode,
+    getAccumulatedTime: () => accumulatedGameTime,
+    getCurrentWave: () => currentWave,
+    setCurrentWave: (v) => (currentWave = v),
+    getLastStartedWaveIndex: () => lastStartedWaveIndex,
+    setLastStartedWaveIndex: (v) => (lastStartedWaveIndex = v),
+    addMoney: (n) => (money += n),
+    updateUI,
+    showTargetNotification: (r) => showTargetNotification(r),
+    getRandomSpawnPoint: (r) => getRandomSpawnPoint(r),
+    activateDefensePoint: (i, c) => activateDefensePoint(i, c),
+    startWave: () => startWave(),
+    checkVictory: () => checkVictory(),
+    getDronesCount: () => drones.length,
+    getRocketsCount: () => rockets.length,
+    getNextTargetRegion: () => nextTargetRegion,
+    setNextTargetRegion: (v) => (nextTargetRegion = v),
+  });
   // movement/combat loops
   startMovementLoops({
     map,
@@ -678,64 +736,16 @@ function initializeMapAndGame() {
   } catch {}
 }
 function activateDefensePoint(index, coords) {
-  if (Array.isArray(coords) && Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
-    const [lat, lng] = coords;
-    const iconUrl = Math.random() < 0.5 ? 'assets/tet.png' : 'assets/gas.png';
-    const icon = L.icon({
-      iconUrl,
-      iconSize: [60, 60],
-      iconAnchor: [30, 30],
-      popupAnchor: [0, -30],
-    });
-    const marker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('🎯 Ціль');
-    const noBuildCircle = L.circle([lat, lng], {
-      radius: 100,
-      color: 'red',
-      fillColor: '#ff4444',
-      fillOpacity: 0.2,
-      dashArray: '4, 4',
-      interactive: false,
-    }).addTo(map);
-    defensePoints.push({
-      lat,
-      lng,
-      marker,
-      noBuildCircle,
-      alive: !0,
-    });
-    console.log(`Activated defense point ${index} at [${lat}, ${lng}] with icon ${iconUrl}`);
-  } else {
-    console.error(`Invalid coords for defense point ${index}:`, coords);
-  }
+  const obj = createDefensePoint(map, index, coords);
+  if (obj) defensePoints.push(obj);
 }
 function activateAirport(coords) {
-  const [lat, lng] = coords;
-  const icon = L.icon({
-    iconUrl: 'assets/aeroport.png',
-    iconSize: [55, 55],
-    iconAnchor: [25, 25],
-    popupAnchor: [0, 25],
-  });
-  const marker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('✈️ Аеропорт');
-  const noBuildCircle = L.circle([lat, lng], {
-    radius: 180,
-    color: '#1f8cff',
-    fillColor: '#1f8cff',
-    fillOpacity: 0.2,
-    dashArray: '4, 4',
-    interactive: false,
-  }).addTo(map);
-  airport = {
-    lat,
-    lng,
-    marker,
-    noBuildCircle,
-    alive: !0,
-    radius: 180,
-  };
-  isAirportSpawning = !1;
-  console.log(`Activated airport at [${lat}, ${lng}]`);
-  pvoApi && pvoApi.updatePvoPurchaseAvailability();
+  const obj = createAirport(map, coords);
+  if (obj) {
+    airport = obj;
+    isAirportSpawning = false;
+    pvoApi && pvoApi.updatePvoPurchaseAvailability();
+  }
 }
 function triggerWaveAlarm() {
   triggerAlarm(isSoundOn, alarmSound, alarmIndicator, gameSpeed);
@@ -944,50 +954,6 @@ function updateUI() {
 }
 function showVictoryScreen(e) {
   uiShowVictoryScreen(e);
-}
-function makeDraggable(target, handle) {
-  // Pointer Events: коректна робота на миші і дотиках
-  let dragging = false;
-  let startX = 0;
-  let startY = 0;
-  let baseLeft = 0;
-  let baseTop = 0;
-
-  function onPointerDown(ev) {
-    try {
-      handle.setPointerCapture?.(ev.pointerId);
-    } catch {}
-    dragging = true;
-    startX = ev.clientX;
-    startY = ev.clientY;
-    baseLeft = target.offsetLeft;
-    baseTop = target.offsetTop;
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    ev.preventDefault();
-  }
-  function onPointerMove(ev) {
-    if (!dragging) {
-      return;
-    }
-    const dx = ev.clientX - startX;
-    const dy = ev.clientY - startY;
-    target.style.left = baseLeft + dx + 'px';
-    target.style.top = baseTop + dy + 'px';
-  }
-  function onPointerUp(ev) {
-    dragging = false;
-    try {
-      handle.releasePointerCapture?.(ev.pointerId);
-    } catch {}
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
-  }
-
-  try {
-    handle.style.touchAction = 'none';
-  } catch {}
-  handle.addEventListener('pointerdown', onPointerDown);
 }
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';

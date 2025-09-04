@@ -69,6 +69,16 @@ html {
   background-color: #007bff;
   box-shadow: 0 0 8px #007bff;
 }
+.speed-button:focus-visible,
+#pauseButton:focus-visible,
+#soundButton:focus-visible,
+.mode-button:focus-visible,
+.pvo-button:focus-visible,
+.pvo-item:focus-visible,
+.donate-btn:focus-visible {
+  outline: 2px solid #1f8cff;
+  outline-offset: 2px;
+}
 .speed-button:hover {
   background-color: #555;
 }
@@ -291,6 +301,17 @@ html {
   }
   50% {
     transform: scale(1.3);
+  }
+}
+
+/* Зменшення руху для користувачів з prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+  .alarm-dot {
+    animation: none !important;
+    box-shadow: none !important;
   }
 }
 .heavy-drone-icon img {

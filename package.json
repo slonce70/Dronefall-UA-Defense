@@ -7,6 +7,8 @@
     "dev": "node scripts/sync-public-assets.mjs && vite",
     "prebuild": "node scripts/sync-public-assets.mjs",
     "build": "vite build",
+    "build:prod": "SOURCEMAP=false vite build",
+    "build:debug": "SOURCEMAP=true vite build",
     "postbuild": "node scripts/generate-precache.mjs && node scripts/stamp-sw-cache.mjs && node scripts/patch-preload-wallpaper.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
