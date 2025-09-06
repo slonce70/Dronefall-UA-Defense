@@ -5,7 +5,7 @@ import { CanvasOptimizer } from './render/CanvasOptimizer.js';
 const log = new Logger({ scope: 'sprites' });
 
 let mapRef = null;
-// ВИПРАВЛЕННЯ: спрощуємо архітектуру - завжди малюємо в контейнері
+// Малюємо в контейнері
 let debugMarkers = false;
 let debugGroup = null;
 let canvas = null;
@@ -52,8 +52,7 @@ function checkImagesReady() {
 function updateCanvasPosition() {
   if (!mapRef || !canvas) return;
   try {
-    // ВИПРАВЛЕННЯ: завжди позиціонуємо canvas відносно контейнера (0,0)
-    // Це забезпечує узгодженість з container-координатами в drawEntity
+    // Позиціюємо canvas відносно контейнера (0,0)
     canvas.style.top = '0px';
     canvas.style.left = '0px';
     canvas.style.transform = 'none'; // скидаємо будь-які трансформації
@@ -73,7 +72,7 @@ function ensureCanvas() {
     canvas.style.pointerEvents = 'none';
     // Порядок шарів: нижче маркерів (600), вище оверлею мапи
     canvas.style.zIndex = '599';
-    // ВИПРАВЛЕННЯ: завжди прикріплюємо до контейнера для узгодженості координат
+    // Прикріплюємо до контейнера
     const host = mapRef.getContainer();
     if (host && canvas.parentNode !== host) host.appendChild(canvas);
     ctx = canvas.getContext('2d');
@@ -146,13 +145,13 @@ function scheduleRedraw(recalc = false) {
 export function initSprites(map) {
   mapRef = map;
   drawingSuspended = false;
-  // ВИПРАВЛЕННЯ: спрощуємо ініціалізацію - завжди використовуємо контейнер
+  // Ініціалізація канваса в контейнері
   try {
     ensureCanvas();
   } catch (e) {
     log.error('Error initializing sprites:', e);
   }
-  // Дебаг: опційний рендер маркерів‑точок (примусові видимі точки)
+  // Дебаг‑маркери‑точки (за прапорцем)
   try {
     const q = new URLSearchParams(location.search);
     const r = q.get('render');
@@ -168,7 +167,7 @@ export function initSprites(map) {
     forceFallbackDots = dbg.includes('points') || dbg.includes('dots') || dbg.includes('fallback');
     if (debugMarkers) {
       debugGroup = L.layerGroup().addTo(mapRef);
-      // Опційний «smoke test»: кілька статичних точок для перевірки pane
+      // "Smoke"‑маркери для перевірки pane
       if (q.get('markers-smoke') === '1') {
         try {
           L.circleMarker([1414.5, 2000], {
@@ -203,7 +202,7 @@ export function initSprites(map) {
   ensureCanvas();
   map.on('resize', () => scheduleRedraw(true));
   map.on('zoomstart', () => {
-    // ВИПРАВЛЕННЯ: не призупиняємо малювання під час зуму для кращої синхронізації
+    // Не призупиняємо малювання під час зуму
     drawingSuspended = false;
   });
   map.on('zoomend', () => {
@@ -234,7 +233,7 @@ export function drawSprites(drones, rockets) {
       w.__stats.drawFrames = (w.__stats.drawFrames || 0) + 1;
       w.__stats.lastDronesDrawn = drones.length;
       w.__stats.lastRocketsDrawn = rockets.length;
-      // Експортуємо діагностику canvas + origin для тестів/інспекції
+      // Діагностика canvas + origin у __stats
       try {
         const size = mapRef.getSize();
         const origin = mapRef.containerPointToLayerPoint([0, 0]);
@@ -365,14 +364,14 @@ export function drawSprites(drones, rockets) {
     target.restore();
   }
 
-  // хелпер: обмежити точку прямокутником вʼюпорта [0..W]x[0..H]
+  // Обмежити точку прямокутником вʼюпорта [0..W]x[0..H]
   function clampToViewport(pt, w, h) {
     const x = Math.max(0, Math.min(w, pt.x));
     const y = Math.max(0, Math.min(h, pt.y));
     return { x, y };
   }
 
-  // Масштабування розміру спрайтів за зумом (опційно через query: spriteSize=zoom)
+  // Масштаб спрайтів за зумом (через ?spriteSize=zoom)
   let zoomScale = 1;
   try {
     const q = new URLSearchParams(location.search);
@@ -383,11 +382,10 @@ export function drawSprites(drones, rockets) {
     }
   } catch {}
 
-  // хелпер малювання (завжди використовуємо узгоджену систему координат)
+  // Малювання (container‑координати)
   function drawEntity(img, lat, lng, angleRad, size, fallbackColor) {
     // const sizeCss = mapRef.getSize(); // not needed in v2 precompute
-    // ВИПРАВЛЕННЯ: завжди використовуємо container-координати для узгодженості
-    // Canvas завжди має розмір viewport і позиціонується відносно контейнера
+    // Canvas має розмір viewport і позиціонується відносно контейнера
     const cp = mapRef.latLngToContainerPoint([lat, lng]);
     const pt = { x: cp.x, y: cp.y };
     if (!img || !img.complete) {
@@ -422,7 +420,7 @@ export function drawSprites(drones, rockets) {
 
   const size2 = mapRef.getSize();
 
-  // Визначити, чи вмикати примусові точки‑фолбек (динамічно, на випадок гонок ініціалізації)
+  // Чи вмикати примусові точки‑фолбек (динамічно)
   let dynamicForce = false;
   try {
     const q = new URLSearchParams(location.search);
@@ -508,7 +506,7 @@ export function drawSprites(drones, rockets) {
       }
       target.restore();
     } else {
-      // Трохи збільшена ракета для читабельності
+      // Ракета трохи збільшена для читабельності
       drawEntity(images.rocket, r.position[0], r.position[1], angle, [28, 28], '#ffaa00');
       const cp = mapRef.latLngToContainerPoint([r.position[0], r.position[1]]);
       const pt = { x: cp.x, y: cp.y };
@@ -516,7 +514,7 @@ export function drawSprites(drones, rockets) {
     }
   }
 
-  // Якщо використовуємо OffscreenCanvas — звести картинку на видимий canvas
+  // OffscreenCanvas: звести картинку на видимий canvas
   if (offctx && offscreen && ctx && canvas) {
     try {
       ctx.save();
@@ -545,7 +543,7 @@ export function drawSprites(drones, rockets) {
   try {
     const w = window || globalThis;
     if (w.__stats && w.__stats.sprites && w.__stats.sprites.drawn) {
-      // Для debug=points гарантуємо хоча б один видимий індикатор
+      // Для debug=points гарантуємо видимий індикатор
       try {
         const q = new URLSearchParams(location.search);
         const dbg = (q.get('debug') || '')
@@ -568,5 +566,5 @@ export function drawSprites(drones, rockets) {
     }
   } catch {}
 
-  // (без додаткового дублювання blit; вгорі вже намальовано)
+  // Blit виконано вище
 }

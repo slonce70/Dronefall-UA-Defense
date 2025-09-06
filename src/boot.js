@@ -1,4 +1,4 @@
-// Ранній бут‑модуль: ініціалізація звуку, SW, гарячі клавіші та доступність діалогу
+// Ранній бут‑модуль: звук, SW, гарячі клавіші, доступність
 
 import { installErrorHandlers } from './core/errorHandler.js';
 
@@ -20,7 +20,7 @@ try {
   if (alarm) alarm.muted = !on;
 } catch {}
 
-// 2) Клавіатурні скорочення: Пробіл — пауза; 1/2/3 — швидкість; M — звук
+// Клавіатурні скорочення: Пробіл — пауза; 1/2/3 — швидкість; M — звук
 document.addEventListener('keydown', (e) => {
   const pause = document.getElementById('pauseButton');
   const s1 = document.getElementById('speed1x');
@@ -38,7 +38,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'm') snd.click();
 });
 
-// 3) Service Worker: тільки у продакшені; у dev — розреєструвати
+// Service Worker: лише у продакшені; у dev — розреєструвати
 (() => {
   if (!('serviceWorker' in navigator)) return;
   const isLocal =
@@ -56,7 +56,7 @@ document.addEventListener('keydown', (e) => {
   }
 })();
 
-// 4) Пауза при приховуванні вкладки (крім автоматизованих тестів)
+// Пауза при приховуванні вкладки (крім автоматизованих тестів)
 if (!('webdriver' in navigator) || !navigator.webdriver) {
   document.addEventListener('visibilitychange', () => {
     const pause = document.getElementById('pauseButton');
@@ -66,7 +66,7 @@ if (!('webdriver' in navigator) || !navigator.webdriver) {
   });
 }
 
-// 5) Донат‑кнопки без inline‑обробників (CSP‑готово)
+// Донат‑кнопки без inline‑обробників (CSP‑готово)
 function safeOpen(url) {
   try {
     const w = window.open(url, '_blank');
@@ -82,7 +82,7 @@ try {
   if (dp) dp.addEventListener('click', () => safeOpen('https://send.monobank.ua/jar/z1H8hEA96'));
 } catch {}
 
-// 6) Доступність: фокус та trap у стартовому діалозі
+// Доступність: фокус‑trap у стартовому діалозі
 function trapFocus(modal) {
   const FOCUSABLE = [
     'a[href]',

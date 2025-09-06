@@ -1,4 +1,4 @@
-// Допоміжні функції валідації карти
+// Валідація меж карти
 import { MAP_WIDTH, MAP_HEIGHT } from '../constants.js';
 
 /**

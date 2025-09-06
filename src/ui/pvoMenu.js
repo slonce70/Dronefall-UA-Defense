@@ -1,5 +1,4 @@
-// Модуль UI магазину ППО
-// Коментарі українською мовою, як просили
+// Меню ППО (українською)
 
 import { calcPurchasePrice, calcSellRefund, calcUpgradePrice } from '../pvo/math.js';
 
