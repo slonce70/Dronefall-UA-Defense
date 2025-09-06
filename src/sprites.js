@@ -66,12 +66,7 @@ function ensureCanvas() {
   }
   if (!canvas) {
     canvas = document.createElement('canvas');
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.pointerEvents = 'none';
-    // Порядок шарів: нижче маркерів (600), вище оверлею мапи
-    canvas.style.zIndex = '599';
+    canvas.className = 'sprites-canvas';
     // Прикріплюємо до контейнера
     const host = mapRef.getContainer();
     if (host && canvas.parentNode !== host) host.appendChild(canvas);

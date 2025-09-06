@@ -112,7 +112,7 @@ export function bootstrap() {
     ((startBtn.disabled = !0),
       (startRightBtn.disabled = !0),
       (startHardcoreBtn.disabled = !0),
-      (loading.style.display = 'block'),
+      loading.classList.add('block'),
       (__loadingShownAt = Date.now()),
       (MAX_PVO_COUNT = hardcoreMode ? 25 : 20),
       preloadImages(
@@ -125,7 +125,7 @@ export function bootstrap() {
           const minMs = __testMode ? 200 : 600; // keep loading visible briefly for UX/tests
           const left = Math.max(0, minMs - (Date.now() - __loadingShownAt));
           timers.setTimeout(() => {
-            ((preMenu.style.display = 'none'), initializeMapAndGame());
+            (preMenu.classList.add('hidden'), initializeMapAndGame());
           }, left);
         }
       ));
@@ -719,7 +719,7 @@ export function bootstrap() {
           if (ov) ov.remove();
         } catch {}
         try {
-          preMenu.style.display = 'none';
+          preMenu.classList.add('hidden');
         } catch {}
         try {
           const mapEl = document.getElementById('map');

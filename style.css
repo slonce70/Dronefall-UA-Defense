@@ -30,6 +30,15 @@ html {
   font-size: 12px;
   font-family: monospace;
 }
+
+/* Canvas шару спрайтів */
+.sprites-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 599;
+}
 #map {
   height: 100vh;
   width: 100vw;
