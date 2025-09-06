@@ -10,8 +10,8 @@ import {
   updateUI as uiUpdateUI,
   showVictoryScreen as uiShowVictoryScreen,
   showTargetNotification as uiShowTargetNotification,
-  safeOpen as uiSafeOpen,
 } from '../ui.js';
+import { safeOpen as uiSafeOpen } from '../utils/DOMSecurity.js';
 import {
   getRandomSpawnPoint as spawnGetRandomSpawnPoint,
   getRandomTarget as spawnGetRandomTarget,
@@ -340,6 +340,8 @@ export function bootstrap() {
             uiUpdateUI(moneyDisplay, waveDisplay, scoreDisplay, money, currentWave, score),
           getAirport: () => airport,
           setAirport: (a) => (airport = a),
+          getProgressBarMarker: () => progressBarMarker,
+          setProgressBarMarker: (m) => (progressBarMarker = m),
           getIsAirportSpawning: () => isAirportSpawning,
           setIsAirportSpawning: (v) => (isAirportSpawning = v),
           getSelectedPVO: () => selectedPVO,
