@@ -5,36 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dronefall: UA Defense</title>
     <meta name="theme-color" content="#0b0b0b" />
-    <!-- Мінімальні критичні стилі: темний фон + покриття preMenu щоб уникнути «білої» вспишки -->
-    <style>
-      html,
-      body {
-        margin: 0;
-        height: 100%;
-        background: #0b0b0b;
-      }
-      #preMenu {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #0b0b0b;
-        z-index: 1000;
-      }
-      #preMenu .overlay {
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.6);
-      }
-    </style>
+    <!-- CSP: allow inline styles for dev tooling (Vite injects <style> tags). For PROD, prefer server header without 'unsafe-inline'. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' ws:; manifest-src 'self'"> 
+    <!-- Критичні стилі перенесено у style.css для суворішого CSP -->
     <!-- Preload шпалер титульного екрану для швидшого першого кадру -->
     <link rel="preload" as="image" href="/assets/wallpaper.png" fetchpriority="high" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" href="/assets/favicon.png" />
     <!-- Підключаємо CSS одразу, без JS‑інʼєкції, щоб уникати миготіння в dev -->
     <link rel="stylesheet" href="/style.css" />
-    <link rel="stylesheet" href="/footer.css" />
     <!-- Leaflet підключається через NPM (див. src/main.js) -->
   </head>
   <body>
@@ -79,7 +58,7 @@
             Режим:<br />➡️ Проти<br />росії
           </button>
         </div>
-        <div class="button-group compact" style="margin-top: 0px">
+        <div class="button-group compact">
           <button id="startHardcoreBtn" class="mode-button small">Режим:<br />🔥 Хардкор</button>
 
           <button id="startCrtv" class="mode-button small">⌛ Незабаром...</button>

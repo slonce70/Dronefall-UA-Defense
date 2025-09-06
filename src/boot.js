@@ -1,5 +1,12 @@
 // Ранній бут‑модуль: ініціалізація звуку, SW, гарячі клавіші та доступність діалогу
 
+import { installErrorHandlers } from './core/errorHandler.js';
+
+// 0) Глобальні обробники помилок
+try {
+  installErrorHandlers({ toast: false });
+} catch {}
+
 // 1) Ранній стан звуку з localStorage
 try {
   const bg = document.getElementById('bgMusic');
@@ -34,7 +41,8 @@ document.addEventListener('keydown', (e) => {
 // 3) Service Worker: тільки у продакшені; у dev — розреєструвати
 (() => {
   if (!('serviceWorker' in navigator)) return;
-  const isLocal = /^(localhost|127\.0\.0\.1)(:\\d+)?$/.test(location.host) ||
+  const isLocal =
+    /^(localhost|127\.0\.0\.1)(:\\d+)?$/.test(location.host) ||
     location.hostname.endsWith('.local');
   if (isLocal) {
     navigator.serviceWorker
@@ -129,4 +137,3 @@ try {
     mo.observe(preMenu, { attributes: true, attributeFilter: ['style'] });
   }
 } catch {}
-

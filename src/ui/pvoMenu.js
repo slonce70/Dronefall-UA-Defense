@@ -4,7 +4,7 @@
 import { calcPurchasePrice, calcSellRefund, calcUpgradePrice } from '../pvo/math.js';
 
 /**
- * @typedef {Object} PvoMenuCtx
+ * @typedef {object} PvoMenuCtx
  * @property {L.Map} map
  * @property {HTMLElement} pvoMenu
  * @property {Array<any>} pvoTypes
@@ -40,6 +40,8 @@ import { calcPurchasePrice, calcSellRefund, calcUpgradePrice } from '../pvo/math
  */
 export function setupPvoMenu(ctx) {
   const { pvoTypes, pvoMenu, pvoColorMap, map } = ctx;
+  const store = ctx.store; // optional PvoStore
+  const bus = ctx.bus; // optional EventBus
   // Внутрішні кнопки/елементи меню
   // (оголошуються як const у момент створення)
 
@@ -48,15 +50,20 @@ export function setupPvoMenu(ctx) {
     if (item.name === 'Аеропорт') {
       return;
     }
-    const el = document.createElement('div');
-    el.className = 'pvo-item';
-    el.innerHTML = `
-      <img src="${item.img}" />
-      <b>${item.name}</b><br/>
-      💶${item.price}<br/>
-      📏${item.radius}
-    `;
-    el.onclick = () => {
+    const elCard = document.createElement('div');
+    elCard.className = 'pvo-item';
+    const _img = document.createElement('img');
+    _img.src = item.img;
+    const _name = document.createElement('b');
+    _name.textContent = item.name;
+    const _br1 = document.createElement('br');
+    const _price = document.createElement('span');
+    _price.textContent = `💶${item.price}`;
+    const _br2 = document.createElement('br');
+    const _radius = document.createElement('span');
+    _radius.textContent = `📏${item.radius}`;
+    elCard.append(_img, _name, _br1, _price, _br2, _radius);
+    elCard.onclick = () => {
       // Вибір юніта для покупки (перевірка ціни)
       if (item.name === 'F-16' && !(ctx.getAirport() && ctx.getAirport().alive)) {
         alert('❌ Для покупки F-16 спочатку потрібно встановити аеропорт!');
@@ -71,7 +78,7 @@ export function setupPvoMenu(ctx) {
       ctx.setSelectedPVO(item);
       ctx.setBuyingMode(true);
       document.querySelectorAll('.pvo-item').forEach((e) => e.classList.remove('selected'));
-      el.classList.add('selected');
+      elCard.classList.add('selected');
       if (sellPVOButton) {
         sellPVOButton.disabled = true;
       }
@@ -81,21 +88,36 @@ export function setupPvoMenu(ctx) {
       if (upgradeInfo) {
         upgradeInfo.textContent = '';
       }
+      try {
+        bus && bus.emit('pvo:select', { name: item.name, price });
+      } catch {}
     };
-    pvoMenu.appendChild(el);
+    pvoMenu.appendChild(elCard);
   });
 
   // Кнопки дій
   const airportBtn = document.createElement('button');
   airportBtn.className = 'pvo-button';
   airportBtn.id = 'airportButton';
-  airportBtn.innerHTML = '🏢<br>Аеропорт<br>💶3000';
+  while (airportBtn.firstChild) airportBtn.removeChild(airportBtn.firstChild);
+  airportBtn.append(
+    document.createTextNode('🏢'),
+    document.createElement('br'),
+    document.createTextNode('Аеропорт'),
+    document.createElement('br'),
+    document.createTextNode('💶3000')
+  );
   airportBtn.style.marginTop = '10px';
   pvoMenu.appendChild(airportBtn);
 
   const movePVOButton = document.createElement('button');
   movePVOButton.className = 'pvo-button';
-  movePVOButton.innerHTML = '✈️<br>Перемістити F-16';
+  while (movePVOButton.firstChild) movePVOButton.removeChild(movePVOButton.firstChild);
+  movePVOButton.append(
+    document.createTextNode('✈️'),
+    document.createElement('br'),
+    document.createTextNode('Перемістити F-16')
+  );
   movePVOButton.disabled = true;
   movePVOButton.style.marginTop = '10px';
   pvoMenu.appendChild(movePVOButton);
@@ -103,7 +125,12 @@ export function setupPvoMenu(ctx) {
   const sellPVOButton = document.createElement('button');
   sellPVOButton.className = 'pvo-button';
   sellPVOButton.id = 'sellPVOButton';
-  sellPVOButton.innerHTML = '💲<br>Продати ППО';
+  while (sellPVOButton.firstChild) sellPVOButton.removeChild(sellPVOButton.firstChild);
+  sellPVOButton.append(
+    document.createTextNode('💲'),
+    document.createElement('br'),
+    document.createTextNode('Продати ППО')
+  );
   sellPVOButton.disabled = true;
   sellPVOButton.style.marginTop = '10px';
   pvoMenu.appendChild(sellPVOButton);
@@ -111,7 +138,14 @@ export function setupPvoMenu(ctx) {
   const upgradePVOButton = document.createElement('button');
   upgradePVOButton.className = 'pvo-button';
   upgradePVOButton.id = 'upgradePVOButton';
-  upgradePVOButton.innerHTML = '📈<br>Покращити ППО<br>💶100';
+  while (upgradePVOButton.firstChild) upgradePVOButton.removeChild(upgradePVOButton.firstChild);
+  upgradePVOButton.append(
+    document.createTextNode('📈'),
+    document.createElement('br'),
+    document.createTextNode('Покращити ППО'),
+    document.createElement('br'),
+    document.createTextNode('💶100')
+  );
   upgradePVOButton.disabled = true;
   upgradePVOButton.style.marginTop = '10px';
   pvoMenu.appendChild(upgradePVOButton);
@@ -139,8 +173,16 @@ export function setupPvoMenu(ctx) {
       alert(`Недостатньо коштів, потрібно: ${Math.round(price)} карбованців.`);
       return;
     }
-    // Оплата
-    ctx.setMoney(ctx.getMoney() - price);
+    // Оплата через PvoStore (якщо доступний)
+    if (store) {
+      const res = store.buy(airportType.price, count);
+      if (!res.ok) {
+        alert(`Недостатньо коштів, потрібно: ${Math.round(res.price)} карбованців.`);
+        return;
+      }
+    } else {
+      ctx.setMoney(ctx.getMoney() - price);
+    }
     ctx.updateMoney();
     ctx.pvoPurchaseCounts[airportType.name] = count + 1;
     updatePvoMenuPrice(airportType.name);
@@ -186,6 +228,9 @@ export function setupPvoMenu(ctx) {
     sellPVOButton.disabled = true;
     upgradePVOButton.disabled = true;
     upgradeInfo.textContent = '';
+    try {
+      bus && bus.emit('airport:start', { price });
+    } catch {}
   };
 
   sellPVOButton.onclick = () => {
@@ -193,8 +238,8 @@ export function setupPvoMenu(ctx) {
     if (!sel) {
       return;
     }
-    const refund = calcSellRefund(sel.price, sel.upgradeCount);
-    ctx.setMoney(ctx.getMoney() + refund);
+    const refund = store ? store.sell(sel).refund : calcSellRefund(sel.price, sel.upgradeCount);
+    if (!store) ctx.setMoney(ctx.getMoney() + refund);
     ctx.updateMoney();
     try {
       map.removeLayer(sel.marker);
@@ -211,13 +256,21 @@ export function setupPvoMenu(ctx) {
     ctx.setSelectedPVO(null);
     // Скидаємо UI вибору після продажу — як в оригіналі
     sellPVOButton.disabled = true;
-    sellPVOButton.innerHTML = '💲 Продати ППО';
+    while (sellPVOButton.firstChild) sellPVOButton.removeChild(sellPVOButton.firstChild);
+    sellPVOButton.append(
+      document.createTextNode('💲'),
+      document.createElement('br'),
+      document.createTextNode('Продати ППО')
+    );
     upgradePVOButton.disabled = true;
     upgradeInfo.textContent = '';
     if (movePVOButton) {
       movePVOButton.disabled = true;
     }
     document.querySelectorAll('.pvo-item').forEach((e) => e.classList.remove('selected'));
+    try {
+      bus && bus.emit('pvo:sell', { name: sel.name, refund });
+    } catch {}
   };
 
   upgradePVOButton.onclick = () => {
@@ -231,16 +284,28 @@ export function setupPvoMenu(ctx) {
     if (sel.upgradeCount >= 10) {
       return alert('❌ Це ППО покращено вже 10 разів - більше не можна!');
     }
-    const price = calcUpgradePrice(sel.upgradeCount);
-    if (ctx.getMoney() < price) {
-      return alert(`Недостатньо коштів для покращення, потрібно: ${price} карбованців.`);
+    // Через PvoStore (з валідацією та новими статами)
+    if (store) {
+      const res = store.upgrade(sel);
+      if (!res.ok) {
+        return alert(`Недостатньо коштів для покращення, потрібно: ${res.cost} карбованців.`);
+      }
+      const unit = res.unit;
+      sel.damage = unit.damage;
+      sel.radius = unit.radius;
+      sel.cd = unit.cd;
+      sel.upgradeCount = unit.upgradeCount;
+    } else {
+      const price = calcUpgradePrice(sel.upgradeCount);
+      if (ctx.getMoney() < price) {
+        return alert(`Недостатньо коштів для покращення, потрібно: ${price} карбованців.`);
+      }
+      ctx.setMoney(ctx.getMoney() - price);
+      sel.damage = Math.min(sel.damage + 6, 3 * sel.baseDamage);
+      sel.radius = Math.min(sel.radius + 8, 3 * sel.baseRadius);
+      sel.cd = Math.max(sel.cd - 100, 100);
+      sel.upgradeCount++;
     }
-    ctx.setMoney(ctx.getMoney() - price);
-    // Баланс: приріст у межах (до *3 від базового)
-    sel.damage = Math.min(sel.damage + 6, 3 * sel.baseDamage);
-    sel.radius = Math.min(sel.radius + 8, 3 * sel.baseRadius);
-    sel.cd = Math.max(sel.cd - 100, 100);
-    sel.upgradeCount++;
     upgradeInfo.textContent = `Покращено: ${sel.upgradeCount} / 10`;
     updateUpgradeButtonText();
     if (sel.rangeCircle) {
@@ -254,8 +319,28 @@ export function setupPvoMenu(ctx) {
       });
     }
     const refund = calcSellRefund(sel.price, sel.upgradeCount);
-    sellPVOButton.innerHTML = `💲<br>Продати ППО<br><span style="white-space: nowrap;">+💶${refund}</span>`;
+    // Безпечне оновлення кнопки продажу з сумою повернення
+    (function setRefund(v) {
+      while (sellPVOButton.firstChild) sellPVOButton.removeChild(sellPVOButton.firstChild);
+      const top = document.createElement('span');
+      top.textContent = '💲';
+      const mid = document.createElement('span');
+      mid.textContent = 'Продати ППО';
+      const tail = document.createElement('span');
+      tail.style.whiteSpace = 'nowrap';
+      tail.textContent = `+💶${v}`;
+      sellPVOButton.append(
+        top,
+        document.createElement('br'),
+        mid,
+        document.createElement('br'),
+        tail
+      );
+    })(refund);
     ctx.updateMoney();
+    try {
+      bus && bus.emit('pvo:upgrade', { name: sel.name, upgradeCount: sel.upgradeCount });
+    } catch {}
   };
 
   // Допоміжні API
@@ -266,18 +351,31 @@ export function setupPvoMenu(ctx) {
     document.querySelectorAll('.pvo-item').forEach((e) => {
       const b = e.querySelector('b');
       if (b && b.textContent === name) {
-        e.innerHTML = `
-          <img src="${type.img}" />
-          <b>${name}</b><br/>
-          💶${price}<br/>
-          📏${type.radius}
-        `;
+        while (e.firstChild) e.removeChild(e.firstChild);
+        const _i = document.createElement('img');
+        _i.src = type.img;
+        const _n = document.createElement('b');
+        _n.textContent = name;
+        const _brA = document.createElement('br');
+        const _p = document.createElement('span');
+        _p.textContent = `💶${price}`;
+        const _brB = document.createElement('br');
+        const _r = document.createElement('span');
+        _r.textContent = `📏${type.radius}`;
+        e.append(_i, _n, _brA, _p, _brB, _r);
       }
     });
     if (name === 'Аеропорт') {
       const btn = document.getElementById('airportButton');
       if (btn) {
-        btn.innerHTML = '🏢<br>Аеропорт<br>💶' + price;
+        while (btn.firstChild) btn.removeChild(btn.firstChild);
+        btn.append(
+          document.createTextNode('🏢'),
+          document.createElement('br'),
+          document.createTextNode('Аеропорт'),
+          document.createElement('br'),
+          document.createTextNode('💶' + price)
+        );
       }
     }
   }
@@ -293,6 +391,7 @@ export function setupPvoMenu(ctx) {
       }
       if (reachedLimit) {
         el.classList.add('disabled');
+        el.setAttribute('aria-disabled', 'true');
         el.onclick = () =>
           alert(`❌ Досягнуто ліміт ${ctx.getMaxPvoCount()} ППО. Покращи вже створені.`);
         return;
@@ -300,6 +399,7 @@ export function setupPvoMenu(ctx) {
       // Карта доступна одразу після ініціалізації
       if (type.name === 'F-16' && (!airportAlive || ctx.getIsAirportSpawning())) {
         el.classList.add('disabled');
+        el.setAttribute('aria-disabled', 'true');
         el.onclick = () =>
           alert(
             ctx.getIsAirportSpawning()
@@ -309,6 +409,7 @@ export function setupPvoMenu(ctx) {
         return;
       }
       el.classList.remove('disabled');
+      el.setAttribute('aria-disabled', 'false');
       el.onclick = () => {
         const count = ctx.pvoPurchaseCounts[type.name] || 0;
         const price = calcPurchasePrice(type.price, count);
@@ -329,9 +430,11 @@ export function setupPvoMenu(ctx) {
       if (airportAlive || ctx.getIsAirportSpawning()) {
         ab.disabled = true;
         ab.classList.add('disabled');
+        ab.setAttribute('aria-disabled', 'true');
       } else {
         ab.disabled = false;
         ab.classList.remove('disabled');
+        ab.setAttribute('aria-disabled', 'false');
       }
     }
   }
@@ -342,7 +445,12 @@ export function setupPvoMenu(ctx) {
       return;
     }
     const price = calcUpgradePrice(sel.upgradeCount);
-    upgradePVOButton.innerHTML = '📈 Покращити ППО<br>💶' + price;
+    while (upgradePVOButton.firstChild) upgradePVOButton.removeChild(upgradePVOButton.firstChild);
+    upgradePVOButton.append(
+      document.createTextNode('📈 Покращити ППО'),
+      document.createElement('br'),
+      document.createTextNode('💶' + price)
+    );
   }
 
   // Повертаємо API для використання ззовні
@@ -358,7 +466,21 @@ export function setupPvoMenu(ctx) {
       sellPVOButton.disabled = !enabled;
     },
     setSellButtonRefund: (refund) => {
-      sellPVOButton.innerHTML = `💲<br>Продати ППО<br><span style="white-space: nowrap;">+💶${refund}</span>`;
+      while (sellPVOButton.firstChild) sellPVOButton.removeChild(sellPVOButton.firstChild);
+      const top = document.createElement('span');
+      top.textContent = '💲';
+      const mid = document.createElement('span');
+      mid.textContent = 'Продати ППО';
+      const tail = document.createElement('span');
+      tail.style.whiteSpace = 'nowrap';
+      tail.textContent = `+💶${refund}`;
+      sellPVOButton.append(
+        top,
+        document.createElement('br'),
+        mid,
+        document.createElement('br'),
+        tail
+      );
     },
     setUpgradeButtonDisabled: (disabled) => {
       upgradePVOButton.disabled = !!disabled;
@@ -370,7 +492,12 @@ export function setupPvoMenu(ctx) {
       sellPVOButton.disabled = true;
       upgradePVOButton.disabled = true;
       upgradeInfo.textContent = '';
-      sellPVOButton.innerHTML = '💲 Продати ППО';
+      while (sellPVOButton.firstChild) sellPVOButton.removeChild(sellPVOButton.firstChild);
+      sellPVOButton.append(
+        document.createTextNode('💲'),
+        document.createElement('br'),
+        document.createTextNode('Продати ППО')
+      );
       document.querySelectorAll('.pvo-item').forEach((e) => e.classList.remove('selected'));
     },
   };

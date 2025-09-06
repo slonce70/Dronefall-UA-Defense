@@ -7,6 +7,12 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.{js,ts}'],
     coverage: {
       reporter: ['text', 'html'],
+      thresholds: {
+        lines: 75,
+        branches: 65,
+        functions: 70,
+        statements: 75,
+      },
     },
   },
 });

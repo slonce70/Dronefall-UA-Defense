@@ -17,49 +17,62 @@ export function updateUI(moneyEl, waveEl, scoreEl, money, wave, score) {
 
 export function showTargetNotification(region, gameSpeed = 1) {
   const t = document.createElement('div');
-  t.style.position = 'fixed';
-  t.style.top = '72%';
-  t.style.left = '50%';
-  t.style.transform = 'translate(-50%, -50%)';
-  t.style.background = 'rgba(0, 0, 0, 0.8)';
-  t.style.color = 'red';
-  t.style.padding = '15px';
-  t.style.borderRadius = '8px';
-  t.style.fontSize = '13px';
-  t.style.textAlign = 'center';
-  t.style.zIndex = '10000';
+  t.className = 'toast-notification';
+  t.role = 'status';
   t.textContent = `Наступна ціль в ${region} області`;
   document.body.appendChild(t);
-  setTimeout(
-    () => {
+  const ttl = Math.max(1000, 3000 / (gameSpeed || 1));
+  setTimeout(() => {
+    try {
       document.body.removeChild(t);
-    },
-    3000 / (gameSpeed || 1)
-  );
+    } catch {}
+  }, ttl);
 }
 
-export function showVictoryScreen(html) {
+import { createOverlay, el, setText, append } from './utils/DOMSecurity.js';
+
+/**
+ * Показати оверлей перемоги без використання innerHTML.
+ * Сумісність: якщо передано рядок, він буде показаний як plain‑text.
+ * Рекомендовано: викликати з об'єктом { message, buttons }.
+ * @param {string|{ message: string, buttons?: Array<{ label: string, onClick: () => void, variant?: 'primary'|'secondary'}> }} content
+ */
+export function showVictoryScreen(content) {
   // Гарантуємо, що існує лише один оверлей перемоги
   try {
     const old = document.getElementById('victoryOverlay');
-    if (old) {
-      old.remove();
-    }
+    if (old) old.remove();
   } catch {}
-  const t = document.createElement('div');
-  t.id = 'victoryOverlay';
-  t.style.position = 'fixed';
-  t.style.top = '50%';
-  t.style.left = '50%';
-  t.style.transform = 'translate(-50%, -50%)';
-  t.style.padding = '30px';
-  t.style.background = '#111';
-  t.style.color = '#fff';
-  t.style.borderRadius = '12px';
-  t.style.zIndex = '10000';
-  t.style.boxShadow = '0 0 20px rgba(0,0,0,0.7)';
-  t.style.fontSize = '18px';
-  t.style.textAlign = 'center';
-  t.innerHTML = html;
-  document.body.appendChild(t);
+
+  const { wrap, box } = createOverlay({ id: 'victoryOverlay' });
+
+  if (typeof content === 'string') {
+    // Back‑compat: показати як текст (без HTML)
+    const p = el('div');
+    setText(p, content);
+    append(box, p);
+  } else if (content && typeof content === 'object') {
+    const msg = el('div');
+    setText(msg, content.message || '');
+    append(box, msg);
+    if (Array.isArray(content.buttons)) {
+      const row = el('div', { className: 'overlay-actions' });
+      for (const b of content.buttons) {
+        const btn = el('button', {
+          className: b.variant === 'secondary' ? 'btn-secondary' : 'btn-primary',
+        });
+        setText(btn, b.label);
+        try {
+          btn.addEventListener('click', () => b.onClick && b.onClick());
+        } catch {}
+        row.appendChild(btn);
+      }
+      append(box, row);
+    }
+  }
+
+  document.body.appendChild(wrap);
 }
+
+// Експортуємо safeOpen для випадків, коли його треба викликати з інших модулів UI
+export { safeOpen } from './utils/DOMSecurity.js';

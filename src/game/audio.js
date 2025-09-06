@@ -6,13 +6,13 @@ export function triggerWaveAlarm(isSoundOn, alarmSound, alarmIndicator, gameSpee
       alarmSound.play();
     } catch {}
   }
-  alarmIndicator.style.display = 'block';
-  alarmIndicator.classList.add('blinking');
-  setTimeout(
-    () => {
-      alarmIndicator.style.display = 'none';
-      alarmIndicator.classList.remove('blinking');
-    },
-    6000 / (gameSpeed || 1)
-  );
+  if (alarmIndicator) {
+    alarmIndicator.style.display = 'block';
+    setTimeout(
+      () => {
+        alarmIndicator.style.display = 'none';
+      },
+      Math.max(800, 2000 / (gameSpeed || 1))
+    );
+  }
 }

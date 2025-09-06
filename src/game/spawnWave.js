@@ -1,8 +1,12 @@
 // Спавн хвиль винесено в окремий модуль
 
-import { approximateBezierLength, generateControlPoint } from '../utils.js';
+import { approximateBezierLength, generateControlPoint } from '../utils/bezier.js';
 import { MAP_WIDTH, MAP_HEIGHT, OUTER_MARGIN } from '../constants.js';
-import { debugSpawn, statsLogSpawn } from '../debug.js';
+import { debugSpawn, statsLogSpawn } from '../debug/spawn.js';
+import { dronePool, rocketPool } from './pools.js';
+import { Logger } from '../core/Logger.js';
+import { getRandomTarget } from './spawn.js';
+const log = new Logger({ scope: 'spawnWave' });
 
 export function setupSpawner(ctx) {
   // Допоміжна функція: спавн з правого краю (оригінальна логіка)
@@ -20,9 +24,7 @@ export function setupSpawner(ctx) {
     const drones = ctx.getDrones();
     const currentWave = ctx.getCurrentWave();
 
-    console.log(
-      `Wave ${currentWave + 1}: targetPoints=${defensePoints.length}, pvoList=` + pvoList.length
-    );
+    log.info(`wave=${currentWave + 1} targets=${defensePoints.length} pvo=${pvoList.length}`);
 
     // легкі дрони
     let createdLight = 0;
@@ -38,7 +40,7 @@ export function setupSpawner(ctx) {
       } else if (r < 0.3 && pvoList.length > 0) {
         targetObj = pvoList[Math.floor(Math.random() * pvoList.length)];
         if (!targetObj.latlng || isNaN(targetObj.latlng.lat) || isNaN(targetObj.latlng.lng)) {
-          console.warn(`Invalid PVO target for light drone spawn (wave ${currentWave + 1})`);
+          log.warn(`Invalid PVO target for light drone spawn (wave ${currentWave + 1})`);
           targetObj = defensePoints[Math.floor(Math.random() * defensePoints.length)];
         } else {
           tx = targetObj.latlng.lat;
@@ -65,10 +67,11 @@ export function setupSpawner(ctx) {
               end,
             });
           } catch {}
-          console.warn('[spawn] Skipping light drone due to invalid/short path');
+          log.warn('Skipping light drone due to invalid/short path');
           continue;
         }
-        drones.push({
+        const d = dronePool.acquire();
+        Object.assign(d, {
           type: 'light',
           position: start.slice(),
           start: start.slice(),
@@ -81,13 +84,14 @@ export function setupSpawner(ctx) {
           speedOriginal: 0.21 + 0.31 * Math.random() + 0.01 * currentWave,
           hp: 13 + 10 * currentWave,
         });
+        drones.push(d);
         createdLight++;
         try {
           statsLogSpawn('light', start, end, currentWave);
           debugSpawn(ctx.map, start, end, 'light', 1);
         } catch {}
       } else {
-        console.warn(
+        log.warn(
           `No valid target available for light drone spawn (right, wave ${currentWave + 1})`
         );
       }
@@ -134,7 +138,7 @@ export function setupSpawner(ctx) {
               end,
             });
           } catch {}
-          console.warn('[spawn] Skipping heavy drone due to invalid/short path');
+          log.warn('Skipping heavy drone due to invalid/short path');
           continue;
         }
         drones.push({
@@ -156,7 +160,7 @@ export function setupSpawner(ctx) {
           debugSpawn(ctx.map, start, end, 'heavy', 1);
         } catch {}
       } else {
-        console.warn(
+        log.warn(
           `No valid target available for heavy drone spawn (right, wave ${currentWave + 1})`
         );
       }
@@ -166,9 +170,15 @@ export function setupSpawner(ctx) {
     let createdRockets = 0;
     for (let i = 0; i < a; i++) {
       const [sx, sy] = spawnRight();
-      const target = ctx.getRandomTarget(false);
+      const target = getRandomTarget(
+        false,
+        ctx.getDefensePoints(),
+        ctx.getPvoList(),
+        ctx.getAirport()
+      );
       if (target) {
-        rockets.push({
+        const r = rocketPool.acquire();
+        Object.assign(r, {
           position: [sy, sx],
           angleRad: 0,
           target: [target.lat, target.lng],
@@ -176,18 +186,19 @@ export function setupSpawner(ctx) {
           speedOriginal: 1.2 + 1.6 * Math.random() + 0.01 * currentWave,
           hp: 20 + 15 * currentWave,
         });
+        rockets.push(r);
         createdRockets++;
         try {
           statsLogSpawn('rocket', [sy, sx], [target.lat, target.lng], currentWave);
           debugSpawn(ctx.map, [sy, sx], [target.lat, target.lng], 'rocket', 1);
         } catch {}
       } else {
-        console.warn(`No valid target available for rocket spawn (right, wave ${currentWave + 1})`);
+        log.warn(`No valid target available for rocket spawn (right, wave ${currentWave + 1})`);
       }
     }
 
-    console.log(
-      `[spawn] Wave ${currentWave + 1} created: light=${createdLight}, heavy=${createdHeavy}, rockets=${createdRockets}`
+    log.info(
+      `created: light=${createdLight}, heavy=${createdHeavy}, rockets=${createdRockets} (right)`
     );
   }
 
@@ -229,7 +240,7 @@ export function setupSpawner(ctx) {
         sx = -OUTER_MARGIN; // lng за межами ліворуч
         sy = MAP_WIDTH * Math.random(); // lat уздовж карти
       }
-      const rt = ctx.getRandomTarget(true);
+      const rt = getRandomTarget(true, ctx.getDefensePoints(), ctx.getPvoList(), ctx.getAirport());
       if (rt) {
         const start = [sy, sx];
         const end = [rt.lat, rt.lng];
@@ -244,10 +255,11 @@ export function setupSpawner(ctx) {
               end,
             });
           } catch {}
-          console.warn('[spawn] Skipping light drone due to invalid/short path');
+          log.warn('Skipping light drone due to invalid/short path');
           continue;
         }
-        drones.push({
+        const d2 = dronePool.acquire();
+        Object.assign(d2, {
           type: 'light',
           // Важливо: копіюємо стартову позицію, щоб подальші зміни не мутували оригінал
           position: start.slice(),
@@ -261,13 +273,14 @@ export function setupSpawner(ctx) {
           speedOriginal: 0.21 + 0.31 * Math.random() + 0.01 * currentWave,
           hp: 13 + 10 * currentWave,
         });
+        drones.push(d2);
         createdLight++;
         try {
           statsLogSpawn('light', start, end, currentWave);
           debugSpawn(ctx.map, start, end, 'light', 1);
         } catch {}
       } else {
-        console.warn(`No valid target available for light drone spawn (wave ${currentWave + 1})`);
+        log.warn(`No valid target available for light drone spawn (wave ${currentWave + 1})`);
       }
     }
 
@@ -315,10 +328,11 @@ export function setupSpawner(ctx) {
               end,
             });
           } catch {}
-          console.warn('[spawn] Skipping heavy drone due to invalid/short path');
+          log.warn('Skipping heavy drone due to invalid/short path');
           continue;
         }
-        drones.push({
+        const h = dronePool.acquire();
+        Object.assign(h, {
           type: 'heavy',
           position: start.slice(),
           start: start.slice(),
@@ -331,13 +345,14 @@ export function setupSpawner(ctx) {
           speedOriginal: 0.25 + 0.21 * Math.random() + 0.01 * currentWave,
           hp: 220 + 27 * currentWave,
         });
+        drones.push(h);
         createdHeavy++;
         try {
           statsLogSpawn('heavy', start, end, currentWave);
           debugSpawn(ctx.map, start, end, 'heavy', 1);
         } catch {}
       } else {
-        console.warn(`No valid target available for heavy drone spawn (wave ${currentWave + 1})`);
+        log.warn(`No valid target available for heavy drone spawn (wave ${currentWave + 1})`);
       }
     }
 
@@ -362,7 +377,8 @@ export function setupSpawner(ctx) {
       }
       const rt = ctx.getRandomTarget(false);
       if (rt) {
-        rockets.push({
+        const r2 = rocketPool.acquire();
+        Object.assign(r2, {
           position: [sy, sx],
           angleRad: 0,
           target: [rt.lat, rt.lng],
@@ -370,19 +386,18 @@ export function setupSpawner(ctx) {
           speedOriginal: 1.2 + 1.6 * Math.random() + 0.01 * currentWave,
           hp: 20 + 15 * currentWave,
         });
+        rockets.push(r2);
         createdRockets++;
         try {
           statsLogSpawn('rocket', [sy, sx], [rt.lat, rt.lng], currentWave);
           debugSpawn(ctx.map, [sy, sx], [rt.lat, rt.lng], 'rocket', 1);
         } catch {}
       } else {
-        console.warn(`No valid target available for rocket spawn (wave ${currentWave + 1})`);
+        log.warn(`No valid target available for rocket spawn (wave ${currentWave + 1})`);
       }
     }
 
-    console.log(
-      `[spawn] Wave ${currentWave + 1} created: light=${createdLight}, heavy=${createdHeavy}, rockets=${createdRockets}`
-    );
+    log.info(`created: light=${createdLight}, heavy=${createdHeavy}, rockets=${createdRockets}`);
   }
 
   return { spawnWave };

@@ -3,14 +3,14 @@ import {
   bezierTangent,
   generateControlPoint,
   approximateBezierLength,
-} from '../utils.js';
-import { drawBeam } from '../beams.js';
-import { explosion } from '../effects.js';
+} from '../utils/bezier.js';
+import { drawBeam } from './beams.js';
+import { explosion } from './effects.js';
 import { PIXEL_TO_METERS } from '../constants.js';
 
 /**
  * Тип контексту для руху (скорочено)
- * @typedef {Object} MovementCtx
+ * @typedef {object} MovementCtx
  * @property {L.Map} map — інстанс карти Leaflet
  * @property {() => boolean} getGameOver
  * @property {() => number} getGameSpeed
@@ -116,7 +116,10 @@ function updateDrones(ctx, now, dtFactor) {
     const a = drones[n];
     if (a.hp <= 0) {
       explosion(map, a.position, getGameSpeed());
-      drones.splice(n, 1);
+      const removed = drones.splice(n, 1)[0];
+      try {
+        dronePool.release(removed);
+      } catch {}
       ctx.addMoney(a.type === 'heavy' ? 300 : 120);
       ctx.incScore();
     } else {
@@ -167,7 +170,10 @@ function updateDrones(ctx, now, dtFactor) {
             if (!a.lastRebCheck || now - a.lastRebCheck >= 1000 / getGameSpeed()) {
               if (Math.random() < 0.03) {
                 explosion(map, a.position, getGameSpeed());
-                drones.splice(n, 1);
+                const rem = drones.splice(n, 1)[0];
+                try {
+                  dronePool.release(rem);
+                } catch {}
                 ctx.addMoney(a.type === 'heavy' ? 300 : 120);
                 ctx.incScore();
               } else {
@@ -184,7 +190,10 @@ function updateDrones(ctx, now, dtFactor) {
       a.t = Math.min(a.t + step, 1);
       a.position = bezierPoint(a.start, a.control, a.target, a.t);
       if (isNaN(a.position[0]) || isNaN(a.position[1])) {
-        drones.splice(n, 1);
+        const rem = drones.splice(n, 1)[0];
+        try {
+          dronePool.release(rem);
+        } catch {}
       } else {
         // Перевірка влучання: досягли цілі (кінець кривої або дуже близько) — застосувати шкоду
         const dxEnd = a.target[0] - a.position[0];
@@ -227,7 +236,10 @@ function updateRockets(ctx, now, dtFactor) {
     const a = rockets[n];
     if (a.hp <= 0) {
       explosion(map, a.position, getGameSpeed());
-      rockets.splice(n, 1);
+      const removed = rockets.splice(n, 1)[0];
+      try {
+        rocketPool.release(removed);
+      } catch {}
       ctx.addMoney(450);
       ctx.incScore();
     } else {
@@ -246,7 +258,10 @@ function updateRockets(ctx, now, dtFactor) {
       if (!a.target || isNaN(a.target[0]) || isNaN(a.target[1]) || !targetAlive) {
         const rt = ctx.getRandomTarget(false);
         if (!rt) {
-          rockets.splice(n, 1);
+          const rem = rockets.splice(n, 1)[0];
+          try {
+            rocketPool.release(rem);
+          } catch {}
           continue;
         }
         a.target = [rt.lat, rt.lng];
@@ -261,7 +276,10 @@ function updateRockets(ctx, now, dtFactor) {
         const ux = dx / len;
         const uy = dy / len;
         if (isNaN(ux) || isNaN(uy)) {
-          rockets.splice(n, 1);
+          const rem = rockets.splice(n, 1)[0];
+          try {
+            rocketPool.release(rem);
+          } catch {}
         } else {
           let slowFactor = 1;
           pvoList.forEach((e) => {
@@ -291,7 +309,10 @@ function updateRockets(ctx, now, dtFactor) {
           a.position[1] += uy * a.speed * getGameSpeed() * dtFactor;
           a.angleRad = Math.atan2(uy, ux);
           if (isNaN(a.position[0]) || isNaN(a.position[1])) {
-            rockets.splice(n, 1);
+            const rem2 = rockets.splice(n, 1)[0];
+            try {
+              rocketPool.release(rem2);
+            } catch {}
           } else {
             pvoList.forEach((t) => {
               const dx = a.position[1] - t.latlng.lng;

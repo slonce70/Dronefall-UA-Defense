@@ -6,6 +6,7 @@ html {
   font-family: sans-serif;
   line-height: 1.4;
   overflow-y: hidden;
+  background: #0b0b0b;
 }
 #map {
   height: 100vh;
@@ -240,16 +241,30 @@ html {
   margin-top: 10px;
   cursor: pointer;
 }
+/* Адаптивні посилання на соцмережі */
 .footer-links {
   display: flex;
-  gap: 15px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
   align-items: center;
+  gap: 12px;
   margin-top: 20px;
+  width: 100%;
+  max-width: 200px;
+  overflow: hidden;
 }
 .footer-links a {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
   color: #ccc;
   text-decoration: none;
   font-size: 14px;
+}
+.footer-links img {
+  height: 40px;
+  width: auto;
 }
 #loading {
   margin-top: 30px;
@@ -314,6 +329,53 @@ html {
     box-shadow: none !important;
   }
 }
+.toast-notification {
+  position: fixed;
+  left: 50%;
+  top: 72%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #ff4d4d;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+  z-index: 10000;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+}
+.overlay-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+}
+.overlay-content {
+  padding: 30px;
+  background: #111;
+  color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+  font-size: 18px;
+  text-align: center;
+}
+/* Дії у вікні перемоги */
+.overlay-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.overlay-actions .btn-primary,
+.overlay-actions .btn-secondary {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.overlay-actions .btn-primary { background-color: #28a745; color: #fff; }
+.overlay-actions .btn-secondary { background-color: #555; color: #fff; }
 .heavy-drone-icon img {
   width: 45px;
   height: 45px;
@@ -373,7 +435,8 @@ html {
   background-color: #007bff;
   box-shadow: 0 0 8px #007bff;
 }
-@media (max-width: 600px) {
+/* Дополнительные медиа-запросы для footer-links */
+@media screen and (max-width: 600px) {
   .button-group {
     width: 100%;
   }
@@ -383,6 +446,19 @@ html {
   .footer-links {
     flex-direction: column;
     gap: 8px;
+    max-width: 150px;
+  }
+  .footer-links img {
+    height: 30px;
+  }
+}
+@media screen and (max-width: 400px) {
+  .footer-links {
+    gap: 6px;
+    max-width: 120px;
+  }
+  .footer-links img {
+    height: 28px;
   }
   #controlPanel {
     top: 10px;
@@ -434,4 +510,18 @@ html {
   .rotating-icon {
     transform-origin: center center;
   }
+}
+#preMenu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b0b0b;
+  z-index: 1000;
+}
+#preMenu .overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
 }

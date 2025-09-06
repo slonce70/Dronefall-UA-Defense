@@ -1,7 +1,7 @@
 // Ініціалізація карти Leaflet + піксельного Canvas для хіт‑тесту
 
 import { MAP_WIDTH, MAP_HEIGHT } from '../constants.js';
-import { withCacheBust } from '../utils.js';
+import { withCacheBust } from '../utils/images.js';
 
 export function initLeafletWithPixelCanvas(containerId = 'map') {
   const map = L.map(containerId, {

@@ -1,10 +1,12 @@
 import L from 'leaflet';
 
+import { isPointOnMap as isPointOnMapByAlpha } from '../map/validation.js';
+
 // Обробники кліків по карті: установка/вибір ППО, переміщення F‑16.
 export function attachMapHandlers(ctx) {
   const {
     map,
-    isPointOnMap,
+    pixelCanvas,
     pvoColorMap,
     // гетери/сетери стану
     getMoveMode,
@@ -30,7 +32,7 @@ export function attachMapHandlers(ctx) {
   map.on('click', (evt) => {
     // Режим переміщення F‑16
     if (getMoveMode() && getMovingPVO()) {
-      if (isPointOnMap(evt.latlng.lat, evt.latlng.lng)) {
+      if (isPointOnMapByAlpha(pixelCanvas, evt.latlng.lat, evt.latlng.lng)) {
         for (const dp of getDefensePoints()) {
           const dx = evt.latlng.lng - dp.lng;
           const dy = evt.latlng.lat - dp.lat;
@@ -56,7 +58,7 @@ export function attachMapHandlers(ctx) {
     // Покупка ППО
     if (getBuyingMode() && getSelectedPVO()) {
       const selectedPVO = getSelectedPVO();
-      if (!isPointOnMap(evt.latlng.lat, evt.latlng.lng)) {
+      if (!isPointOnMapByAlpha(pixelCanvas, evt.latlng.lat, evt.latlng.lng)) {
         alert('❌ Не можна встановлювати ППО поза межами карти України!');
         return;
       }
@@ -85,9 +87,19 @@ export function attachMapHandlers(ctx) {
         return;
       }
       const price = Math.floor(selectedPVO.price * Math.pow(1.2, purchases));
-      if (getMoney() < price) {
-        alert(`Недостатньо коштів, потрібно ${Math.round(price)} карбованців.`);
-        return;
+      if (ctx.store) {
+        const res = ctx.store.buy(selectedPVO.price, purchases);
+        if (!res.ok) {
+          alert(`Недостатньо коштів, потрібно ${Math.round(res.price)} карбованців.`);
+          return;
+        }
+      } else {
+        if (getMoney() < price) {
+          alert(`Недостатньо коштів, потрібно ${Math.round(price)} карбованців.`);
+          return;
+        }
+        setMoney(getMoney() - price);
+        updateMoney();
       }
       const icon = L.divIcon({
         className: 'rotating-icon',
@@ -121,23 +133,43 @@ export function attachMapHandlers(ctx) {
       };
       unit.imgEl = unit.marker.getElement()?.querySelector('img');
       getPvoList().push(unit);
-      setMoney(getMoney() - price);
-      updateMoney();
+      // money was adjusted above via store or direct
       const counts = getPvoPurchaseCounts();
       counts[selectedPVO.name] = purchases + 1;
       // Спочатку вийти з режиму покупки і виділити юніт — це гарантує, що наступний клік не ставить нове ППО
       setBuyingMode(false);
       setSelectedPVO(unit);
       // Оновити вітрину і стан кнопок безпечними викликами (pvoApi може бути підʼєднано пізніше)
-      try { pvoApi?.updatePvoMenuPrice?.(selectedPVO.name); } catch {}
-      try { pvoApi?.updatePvoPurchaseAvailability?.(); } catch {}
-      try { document.querySelectorAll('.pvo-item').forEach((el) => el.classList.remove('selected')); } catch {}
-      try { pvoApi?.setSellButtonEnabled?.(true); } catch {}
-      try { pvoApi?.setSellButtonRefund?.(Math.floor(0.75 * unit.price)); } catch {}
-      try { pvoApi?.setUpgradeButtonDisabled?.(!!unit.noUpgrade); } catch {}
-      try { pvoApi?.setUpgradeInfoText?.(`Покращено: 0 / 10`); } catch {}
-      try { pvoApi?.updateUpgradeButtonText?.(); } catch {}
-      try { pvoApi?.setMoveButtonEnabled?.(unit.name === 'F-16'); } catch {}
+      try {
+        pvoApi?.updatePvoMenuPrice?.(selectedPVO.name);
+      } catch {}
+      try {
+        pvoApi?.updatePvoPurchaseAvailability?.();
+      } catch {}
+      try {
+        document.querySelectorAll('.pvo-item').forEach((el) => el.classList.remove('selected'));
+      } catch {}
+      try {
+        pvoApi?.setSellButtonEnabled?.(true);
+      } catch {}
+      try {
+        pvoApi?.setSellButtonRefund?.(Math.floor(0.75 * unit.price));
+      } catch {}
+      try {
+        pvoApi?.setUpgradeButtonDisabled?.(!!unit.noUpgrade);
+      } catch {}
+      try {
+        pvoApi?.setUpgradeInfoText?.(`Покращено: 0 / 10`);
+      } catch {}
+      try {
+        pvoApi?.updateUpgradeButtonText?.();
+      } catch {}
+      try {
+        pvoApi?.setMoveButtonEnabled?.(unit.name === 'F-16');
+      } catch {}
+      try {
+        ctx.bus && ctx.bus.emit('pvo:buy', { name: unit.name, price });
+      } catch {}
       return;
     }
 
@@ -156,9 +188,8 @@ export function attachMapHandlers(ctx) {
     }
     if (picked) {
       setSelectedPVO(picked);
-      const investedUpgrades = picked.upgradeCount > 0
-        ? (100 * (Math.pow(1.75, picked.upgradeCount) - 1)) / 0.75
-        : 0;
+      const investedUpgrades =
+        picked.upgradeCount > 0 ? (100 * (Math.pow(1.75, picked.upgradeCount) - 1)) / 0.75 : 0;
       const investedTotal = picked.price + investedUpgrades;
       const refund = Math.floor(0.75 * investedTotal);
       pvoApi.setSellButtonRefund(refund);

@@ -1,8 +1,11 @@
 import L from 'leaflet';
 
+import { Logger } from '../core/Logger.js';
+const log = new Logger({ scope: 'map.objects' });
+
 export function createDefensePoint(map, index, coords) {
   if (!Array.isArray(coords) || !Number.isFinite(coords[0]) || !Number.isFinite(coords[1])) {
-    console.error(`Invalid coords for defense point ${index}:`, coords);
+    log.error(`Invalid coords for defense point ${index}:`, coords);
     return null;
   }
   const [lat, lng] = coords;
@@ -17,7 +20,7 @@ export function createDefensePoint(map, index, coords) {
     dashArray: '4, 4',
     interactive: false,
   }).addTo(map);
-  console.log(`Activated defense point ${index} at [${lat}, ${lng}] with icon ${iconUrl}`);
+  log.info(`Activated defense point ${index} at [${lat}, ${lng}]`);
   return { lat, lng, marker, noBuildCircle, alive: true };
 }
 
@@ -38,7 +41,6 @@ export function createAirport(map, coords) {
     dashArray: '4, 4',
     interactive: false,
   }).addTo(map);
-  console.log(`Activated airport at [${lat}, ${lng}]`);
+  log.info(`Activated airport at [${lat}, ${lng}]`);
   return { lat, lng, marker, noBuildCircle, alive: true, radius: 180 };
 }
-

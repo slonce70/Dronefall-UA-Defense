@@ -2,7 +2,7 @@
 // Часткові відповіді (206) не кешуються; запити з Range пропускаються — це усуває проблеми завантаження ресурсів.
 
 // Версія runtime‑кеша; підвищуємо суфікс при релізах
-const CACHE_NAME = 'dronefall-runtime-v6';
+const CACHE_NAME = 'dronefall-runtime-v7';
 // Від статичного PRE_CACHE відмовляємося — покладаємося на dist/precache-manifest.json
 const PRE_CACHE = [];
 
@@ -72,7 +72,14 @@ self.addEventListener('fetch', (event) => {
           const preload = await event.preloadResponse;
           if (preload) {
             if (preload.ok && preload.status === 200) {
-              caches.open(CACHE_NAME).then((c) => c.put(req, preload.clone()));
+              try {
+                // Клонируем preload Response ДО его использования
+                const preloadClone = preload.clone();
+                caches.open(CACHE_NAME).then((c) => c.put(req, preloadClone));
+              } catch (e) {
+                // Игнорируем ошибки клонирования - Response уже использован
+                console.warn('SW: Failed to clone preload response for caching:', e.message);
+              }
             }
             return preload;
           }
@@ -80,13 +87,22 @@ self.addEventListener('fetch', (event) => {
         try {
           const res = await fetch(req);
           if (res.ok && res.status === 200) {
-            caches.open(CACHE_NAME).then((c) => c.put(req, res.clone()));
+            try {
+              // Клонируем Response ДО его использования
+              const resClone = res.clone();
+              caches.open(CACHE_NAME).then((c) => c.put(req, resClone));
+            } catch (e) {
+              // Игнорируем ошибки клонирования - Response уже использован
+              console.warn('SW: Failed to clone fetch response for caching:', e.message);
+            }
           }
           return res;
         } catch {
+          const cacheMatch = (await caches.match(req)) || (await caches.match(new URL('index.html', self.registration.scope)));
+          if (cacheMatch) return cacheMatch;
+          // Offline fallback page if available
           return (
-            (await caches.match(req)) ||
-            (await caches.match(new URL('index.html', self.registration.scope)))
+            (await caches.match(new URL('offline.html', self.registration.scope))) || new Response('<h1>Offline</h1>', { headers: { 'Content-Type': 'text/html' } })
           );
         }
       })()
@@ -108,8 +124,13 @@ self.addEventListener('fetch', (event) => {
         fetch(req).then((res) => {
           const isPartial = res.status === 206 || res.headers.has('Content-Range');
           if (res.ok && res.status === 200 && !isPartial) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+            try {
+              const copy = res.clone();
+              caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+            } catch (e) {
+              // Игнорируем ошибки клонирования - Response уже использован
+              console.warn('SW: Failed to clone response for caching:', e.message);
+            }
           }
           return res;
         })

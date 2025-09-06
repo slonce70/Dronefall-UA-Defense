@@ -16,8 +16,24 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npm run lint
-      - run: npm run test -- --run
+      - name: Lint (strict)
+        run: npm run lint:ci
+      - name: Unit tests with coverage
+        run: npm run test -- --run
+      - name: Build (production)
+        run: npm run build
+      - name: Validate assets
+        run: npm run validate:assets
+      - name: Bundle size report
+        run: npm run analyze:size
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage
+          if-no-files-found: ignore
+          retention-days: 7
 
   e2e:
     runs-on: ubuntu-latest

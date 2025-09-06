@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "husky",
     "dev": "node scripts/sync-public-assets.mjs && vite",
     "prebuild": "node scripts/sync-public-assets.mjs",
     "build": "vite build",
@@ -12,25 +13,40 @@
     "postbuild": "node scripts/generate-precache.mjs && node scripts/stamp-sw-cache.mjs && node scripts/patch-preload-wallpaper.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings=0",
+    "quality": "npm run lint && npm run validate:assets && npm run analyze:size",
     "format": "prettier -w .",
     "test": "vitest run",
     "test:ui": "vitest",
     "e2e": "playwright test",
-    "compress": "node scripts/compress-assets.mjs"
+    "compress": "node scripts/compress-assets.mjs",
+    "validate:assets": "node scripts/validate-assets.mjs",
+    "analyze:size": "node scripts/report-bundle-size.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@playwright/test": "^1.46.0",
     "@types/leaflet": "^1.9.9",
     "eslint": "^9.9.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^54.4.0",
     "fast-glob": "^3.3.3",
+    "husky": "^9.1.7",
     "imagemin": "^9.0.1",
     "imagemin-optipng": "^8.0.0",
     "imagemin-webp": "^7.0.0",
     "imagemin-zopfli": "^7.0.0",
+    "jsdom": "^26.1.0",
+    "lint-staged": "^16.1.6",
     "prettier": "^3.3.3",
     "vite": "^5.4.0",
     "vitest": "^2.0.5"
+  },
+  "lint-staged": {
+    "src/**/*.{js,ts,css}": [
+      "eslint --fix",
+      "prettier -w"
+    ]
   },
   "dependencies": {
     "leaflet": "^1.9.4"

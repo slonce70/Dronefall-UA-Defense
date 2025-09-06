@@ -1,7 +1,7 @@
 // Керування швидкістю та звуком (обробники подій та UI)
 
 /**
- * @typedef {Object} ControlsCtx
+ * @typedef {object} ControlsCtx
  * @property {HTMLElement} soundButton
  * @property {HTMLAudioElement} alarmSound
  * @property {HTMLElement} speed1
@@ -12,6 +12,7 @@
  * @property {(n:number) => void} setGameSpeed
  * @property {() => boolean} getIsSoundOn
  * @property {(v:boolean) => void} setIsSoundOn
+ * @property {import('../core/EventBus.js').EventBus} [bus]
  */
 
 /**
@@ -32,6 +33,7 @@ export function setupSpeedAndSoundControls(ctx) {
     setGameSpeed,
     getIsSoundOn,
     setIsSoundOn,
+    bus,
   } = ctx;
 
   let lastNonZeroSpeed = Math.max(1, getGameSpeed() || 1);
@@ -58,6 +60,9 @@ export function setupSpeedAndSoundControls(ctx) {
     }
     setGameSpeed(newSpeed);
     applySpeedUi(newSpeed);
+    try {
+      bus && bus.emit('speed:change', { speed: newSpeed });
+    } catch {}
   }
 
   // Обробники кнопок швидкості
@@ -106,6 +111,9 @@ export function setupSpeedAndSoundControls(ctx) {
     const next = !getIsSoundOn();
     setIsSoundOn(next);
     applySoundUi(next);
+    try {
+      bus && bus.emit('sound:change', { on: next });
+    } catch {}
   };
   applySoundUi(getIsSoundOn());
 }

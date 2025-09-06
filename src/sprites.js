@@ -1,25 +1,31 @@
 // Рендер спрайтів дронів та ракет на Canvas
-import { setImageSrcWithFallback } from './utils.js';
+import { setImageSrcWithFallback } from './utils/images.js';
+import { Logger } from './core/Logger.js';
+import { CanvasOptimizer } from './render/CanvasOptimizer.js';
+const log = new Logger({ scope: 'sprites' });
 
 let mapRef = null;
-let paneRef = null; // виділена панель для коректного порядку шарів
-let attachToContainer = false; // фолбек дебагу: кріпити канвас до контейнера мапи
+// ВИПРАВЛЕННЯ: спрощуємо архітектуру - завжди малюємо в контейнері
 let debugMarkers = false;
 let debugGroup = null;
 let canvas = null;
 let ctx = null;
+let offscreen = null;
+let offctx = null;
 let dpr = 1;
 let debugCanvasLog = false;
 let debugDrawLog = false;
 let debugCross = false;
 let forceFallbackDots = false;
 let autoPointsUntil = 0; // короткочасно вмикати точки‑фолбек до готовності текстур
-let currentOrigin = null; // точка походження для шару [0,0]
+let currentOrigin = null; // точка походження для шару [0,0] (використовується лише у режимі pane)
 let imagesReadyFlag = false;
 let rafScheduled = false;
 let rafNeedRecalc = false;
 let drawingSuspended = false; // під час зуму не змінюємо геометрію, але малюємо
 let lastDebugMarkersRedraw = 0; // тротлінг оновлення debug-маркерів
+let useOptimizer = false;
+const optimizer = new CanvasOptimizer();
 
 const images = {
   light: null,
@@ -44,25 +50,21 @@ function checkImagesReady() {
 }
 
 function updateCanvasPosition() {
-  if (!mapRef || !canvas) {
-    return;
-  }
+  if (!mapRef || !canvas) return;
   try {
-    // Обчислити походження шару для верхнього‑лівого контейнера
-    currentOrigin = mapRef.containerPointToLayerPoint([0, 0]);
-    // Якщо канвас прикріплено до панелі (а не контейнера) — вирівняти через трансляцію шару
-    if (!attachToContainer) {
-      L.DomUtil.setPosition(canvas, currentOrigin);
-    }
+    // ВИПРАВЛЕННЯ: завжди позиціонуємо canvas відносно контейнера (0,0)
+    // Це забезпечує узгодженість з container-координатами в drawEntity
+    canvas.style.top = '0px';
+    canvas.style.left = '0px';
+    canvas.style.transform = 'none'; // скидаємо будь-які трансформації
+    currentOrigin = null; // не використовуємо origin для спрощення
   } catch {}
 }
 
 function ensureCanvas() {
-  if (!mapRef || !paneRef) {
+  if (!mapRef) {
     return;
   }
-  // Малюємо спрайти в окремій панелі над мапою, але під маркерами (z-index >= 601)
-  const pane = paneRef;
   if (!canvas) {
     canvas = document.createElement('canvas');
     canvas.style.position = 'absolute';
@@ -71,15 +73,16 @@ function ensureCanvas() {
     canvas.style.pointerEvents = 'none';
     // Порядок шарів: нижче маркерів (600), вище оверлею мапи
     canvas.style.zIndex = '599';
-    if (pane && canvas.parentNode !== pane) {
-      pane.appendChild(canvas);
-    }
+    // ВИПРАВЛЕННЯ: завжди прикріплюємо до контейнера для узгодженості координат
+    const host = mapRef.getContainer();
+    if (host && canvas.parentNode !== host) host.appendChild(canvas);
     ctx = canvas.getContext('2d');
   } else {
-    // Якщо канвас вже існує — гарантуємо, що він у потрібному контейнері
-    if (pane && canvas.parentNode !== pane) {
+    // Якщо канвас вже існує — гарантуємо, що він у контейнері
+    const host = mapRef.getContainer();
+    if (host && canvas.parentNode !== host) {
       try {
-        pane.appendChild(canvas);
+        host.appendChild(canvas);
       } catch {}
     }
   }
@@ -92,11 +95,25 @@ function ensureCanvas() {
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  try {
+    if (typeof OffscreenCanvas !== 'undefined') {
+      if (!offscreen) offscreen = new OffscreenCanvas(canvas.width, canvas.height);
+      if (offscreen.width !== canvas.width || offscreen.height !== canvas.height) {
+        offscreen.width = canvas.width;
+        offscreen.height = canvas.height;
+      }
+      offctx = offscreen.getContext('2d');
+      if (offctx) offctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    } else {
+      offscreen = null;
+      offctx = null;
+    }
+  } catch {}
   updateCanvasPosition();
   if (debugCanvasLog) {
     try {
       const origin = currentOrigin || mapRef.containerPointToLayerPoint([0, 0]);
-      console.log('[sprites.ensureCanvas]', { w, h, dpr, origin: { x: origin.x, y: origin.y } });
+      log.debug('[ensureCanvas]', { w, h, dpr, origin: { x: origin.x, y: origin.y } });
     } catch {}
   }
 }
@@ -129,32 +146,11 @@ function scheduleRedraw(recalc = false) {
 export function initSprites(map) {
   mapRef = map;
   drawingSuspended = false;
-  // Створити або перевикористати хост для спрайтів
+  // ВИПРАВЛЕННЯ: спрощуємо ініціалізацію - завжди використовуємо контейнер
   try {
-    // Дозволити вибір цільової панелі через query (?pane=overlay|sprites|container)
-    const q = new URLSearchParams(location.search);
-    const panePref = q.get('pane');
-    if (panePref === 'overlay' && mapRef.getPanes?.().overlayPane) {
-      paneRef = mapRef.getPanes().overlayPane;
-      attachToContainer = false;
-    } else if (panePref === 'sprites') {
-      paneRef = mapRef.getPane('spritesPane') || mapRef.createPane('spritesPane');
-      attachToContainer = false;
-    } else {
-      // Типово — контейнер мапи і координати containerPoint
-      paneRef = mapRef.getContainer();
-      attachToContainer = true;
-    }
-    if (!paneRef) {
-      console.error('Failed to acquire host for sprites; attaching to container as fallback');
-      paneRef = mapRef.getContainer();
-      attachToContainer = true;
-    }
-    // Гарантувати створення канвасу
     ensureCanvas();
   } catch (e) {
-    console.error('Error initializing sprites host:', e);
-    ensureCanvas();
+    log.error('Error initializing sprites:', e);
   }
   // Дебаг: опційний рендер маркерів‑точок (примусові видимі точки)
   try {
@@ -165,6 +161,7 @@ export function initSprites(map) {
       .map((s) => s.trim())
       .filter(Boolean);
     debugMarkers = r === 'markers' || dbg.includes('markers');
+    useOptimizer = r === 'v2';
     debugCanvasLog = dbg.includes('sprites') || dbg.includes('canvas');
     debugDrawLog = dbg.includes('draw');
     debugCross = dbg.includes('cross');
@@ -206,7 +203,8 @@ export function initSprites(map) {
   ensureCanvas();
   map.on('resize', () => scheduleRedraw(true));
   map.on('zoomstart', () => {
-    drawingSuspended = true;
+    // ВИПРАВЛЕННЯ: не призупиняємо малювання під час зуму для кращої синхронізації
+    drawingSuspended = false;
   });
   map.on('zoomend', () => {
     drawingSuspended = false;
@@ -308,11 +306,45 @@ export function drawSprites(drones, rockets) {
   }
   // очистити
   const size = mapRef.getSize();
-  ctx.clearRect(0, 0, size.x, size.y);
+  const target = offctx || ctx;
+  // v2: попередньо порахуємо область змін, щоб не чистити весь екран
+  let precomputed = null;
+  if (useOptimizer) {
+    optimizer.reset();
+    // Збір прямокутників для дронів і ракет (у CSS‑координатах)
+    try {
+      // Intentionally left minimal; precompute does not need debug list here
+    } catch {}
+
+    // Оцінка bbox для дронів
+    for (const a of drones) {
+      const cp = mapRef.latLngToContainerPoint([a.position[0], a.position[1]]);
+      if (useForceDots) {
+        optimizer.addRect(cp.x - 6, cp.y - 6, 12, 12);
+      } else {
+        const w = a.type === 'heavy' ? 56 : 40;
+        const h = a.type === 'heavy' ? 56 : 40;
+        optimizer.addRect(cp.x - w / 2 - 2, cp.y - h / 2 - 2, w + 4, h + 4);
+      }
+    }
+    for (const r of rockets) {
+      const cp = mapRef.latLngToContainerPoint([r.position[0], r.position[1]]);
+      if (useForceDots) {
+        optimizer.addRect(cp.x - 6, cp.y - 6, 12, 12);
+      } else {
+        const w = 28,
+          h = 28;
+        optimizer.addRect(cp.x - w / 2 - 2, cp.y - h / 2 - 2, w + 4, h + 4);
+      }
+    }
+    precomputed = optimizer.clearRegion(target, size.x, size.y, 0.7);
+  } else {
+    target.clearRect(0, 0, size.x, size.y);
+  }
   if (debugDrawLog && (drones.length || rockets.length)) {
     try {
       const origin = mapRef.containerPointToLayerPoint([0, 0]);
-      console.log('[sprites.draw]', {
+      log.debug('[draw]', {
         drones: drones.length,
         rockets: rockets.length,
         origin: { x: origin.x, y: origin.y },
@@ -321,16 +353,16 @@ export function drawSprites(drones, rockets) {
   }
 
   if (debugCross) {
-    ctx.save();
-    ctx.strokeStyle = '#ff00ff';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(size.x / 2 - 20, size.y / 2);
-    ctx.lineTo(size.x / 2 + 20, size.y / 2);
-    ctx.moveTo(size.x / 2, size.y / 2 - 20);
-    ctx.lineTo(size.x / 2, size.y / 2 + 20);
-    ctx.stroke();
-    ctx.restore();
+    target.save();
+    target.strokeStyle = '#ff00ff';
+    target.lineWidth = 1.5;
+    target.beginPath();
+    target.moveTo(size.x / 2 - 20, size.y / 2);
+    target.lineTo(size.x / 2 + 20, size.y / 2);
+    target.moveTo(size.x / 2, size.y / 2 - 20);
+    target.lineTo(size.x / 2, size.y / 2 + 20);
+    target.stroke();
+    target.restore();
   }
 
   // хелпер: обмежити точку прямокутником вʼюпорта [0..W]x[0..H]
@@ -340,51 +372,54 @@ export function drawSprites(drones, rockets) {
     return { x, y };
   }
 
-  // хелпер малювання (надійний вибір найкращої екранної точки)
+  // Масштабування розміру спрайтів за зумом (опційно через query: spriteSize=zoom)
+  let zoomScale = 1;
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get('spriteSize') === 'zoom') {
+      // Розмір зростає/зменшується пропорційно зуму карти відносно 0‑го рівня
+      const z = mapRef.getZoom();
+      zoomScale = mapRef.getZoomScale(z, 0);
+    }
+  } catch {}
+
+  // хелпер малювання (завжди використовуємо узгоджену систему координат)
   function drawEntity(img, lat, lng, angleRad, size, fallbackColor) {
-    const sizeCss = mapRef.getSize();
-    // Обчислити обидва простори координат
+    // const sizeCss = mapRef.getSize(); // not needed in v2 precompute
+    // ВИПРАВЛЕННЯ: завжди використовуємо container-координати для узгодженості
+    // Canvas завжди має розмір viewport і позиціонується відносно контейнера
     const cp = mapRef.latLngToContainerPoint([lat, lng]);
-    const ptA = { x: cp.x, y: cp.y };
-    // container bounds precheck (not used further; removal avoids lint warning)
-    const origin = mapRef.containerPointToLayerPoint([0, 0]);
-    const lp = mapRef.latLngToLayerPoint([lat, lng]);
-    const ptB = { x: lp.x - origin.x, y: lp.y - origin.y };
-    // Якщо канвас на контейнері — беремо координати контейнера; інакше — від origin шару
-    const pt = attachToContainer ? ptA : ptB;
+    const pt = { x: cp.x, y: cp.y };
     if (!img || !img.complete) {
       // Намалювати просту точку‑фолбек, щоб вороги були видимі
-      const r = Math.max(3, Math.min(8, Math.floor((size[0] + size[1]) / 10)));
-      ctx.save();
-      ctx.fillStyle = fallbackColor || '#ffffff';
+      const r = Math.max(3, Math.min(8, Math.floor(((size[0] + size[1]) / 10) * zoomScale)));
+      target.save();
+      target.fillStyle = fallbackColor || '#ffffff';
       const visible = pt.x >= 0 && pt.x <= sizeCss.x && pt.y >= 0 && pt.y <= sizeCss.y;
       if (!visible) {
         const edge = clampToViewport(pt, sizeCss.x, sizeCss.y);
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-        ctx.arc(edge.x, edge.y, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        target.globalAlpha = 0.9;
+        target.beginPath();
+        target.arc(edge.x, edge.y, r, 0, Math.PI * 2);
+        target.fill();
+        target.globalAlpha = 1;
       } else {
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-        ctx.fill();
+        target.beginPath();
+        target.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+        target.fill();
       }
-      ctx.restore();
+      target.restore();
       return;
     }
-    const w = size[0];
-    const h = size[1];
-    ctx.save();
-    ctx.translate(pt.x, pt.y);
-    ctx.rotate(angleRad);
-    ctx.drawImage(img, -w / 2, -h / 2, w, h);
-    ctx.restore();
+    const w = size[0] * zoomScale;
+    const h = size[1] * zoomScale;
+    target.save();
+    target.translate(pt.x, pt.y);
+    target.rotate(angleRad);
+    target.drawImage(img, -w / 2, -h / 2, w, h);
+    target.restore();
   }
 
-  const origin = attachToContainer
-    ? null
-    : currentOrigin || mapRef.containerPointToLayerPoint([0, 0]);
   const size2 = mapRef.getSize();
 
   // Визначити, чи вмикати примусові точки‑фолбек (динамічно, на випадок гонок ініціалізації)
@@ -406,55 +441,41 @@ export function drawSprites(drones, rockets) {
   let drawnD = 0;
   for (const a of drones) {
     const img = a.type === 'heavy' ? images.heavy : images.light;
-    const size = a.type === 'heavy' ? [45, 45] : [40, 40];
+    // Збільшені базові розміри для кращої видимості
+    const size = a.type === 'heavy' ? [56, 56] : [40, 40];
     const angle = typeof a.angleRad === 'number' ? a.angleRad : 0;
     const color = a.type === 'heavy' ? '#ff4444' : '#00ff88';
     if (useForceDots) {
-      // Завжди малюємо видиму точку, не залежно від стану завантаження текстур
+      // Завжди малюємо видиму точку (використовуємо container-координати)
       const cp = mapRef.latLngToContainerPoint([a.position[0], a.position[1]]);
-      const lp = mapRef.latLngToLayerPoint([a.position[0], a.position[1]]);
-      const ptA = { x: cp.x, y: cp.y };
-      const ptB = origin ? { x: lp.x - origin.x, y: lp.y - origin.y } : ptA;
-      const inA =
-        ptA.x >= -100 && ptA.x <= size2.x + 100 && ptA.y >= -100 && ptA.y <= size2.y + 100;
-      const inB =
-        ptB.x >= -100 && ptB.x <= size2.x + 100 && ptB.y >= -100 && ptB.y <= size2.y + 100;
-      const pt = attachToContainer && inA ? ptA : inB ? ptB : inA ? ptA : ptB;
-      ctx.save();
-      ctx.fillStyle = color;
+      const pt = { x: cp.x, y: cp.y };
+      const target = offctx || ctx;
+      target.save();
+      target.fillStyle = color;
       const onScreen = pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y;
       if (!onScreen) {
         const edge = clampToViewport(pt, size2.x, size2.y);
-        ctx.globalAlpha = 0.95;
-        ctx.beginPath();
-        ctx.arc(edge.x, edge.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        target.globalAlpha = 0.95;
+        target.beginPath();
+        target.arc(edge.x, edge.y, 5, 0, Math.PI * 2);
+        target.fill();
+        target.globalAlpha = 1;
         if (edge.x >= 0 && edge.x <= size2.x && edge.y >= 0 && edge.y <= size2.y) {
           drawnD++;
         }
       } else {
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
-        ctx.fill();
+        target.beginPath();
+        target.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+        target.fill();
         drawnD++;
       }
-      ctx.restore();
+      target.restore();
     } else {
       drawEntity(img, a.position[0], a.position[1], angle, size, color);
-      // Оцінка видимості за центральною точкою
+      // Оцінка видимості за центральною точкою (container-координати)
       const cp = mapRef.latLngToContainerPoint([a.position[0], a.position[1]]);
-      const lp = mapRef.latLngToLayerPoint([a.position[0], a.position[1]]);
-      const ptA = { x: cp.x, y: cp.y };
-      const ptB = origin ? { x: lp.x - origin.x, y: lp.y - origin.y } : ptA;
-      const inA =
-        ptA.x >= -100 && ptA.x <= size2.x + 100 && ptA.y >= -100 && ptA.y <= size2.y + 100;
-      const inB =
-        ptB.x >= -100 && ptB.x <= size2.x + 100 && ptB.y >= -100 && ptB.y <= size2.y + 100;
-      const pt = attachToContainer && inA ? ptA : inB ? ptB : inA ? ptA : ptB;
-      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) {
-        drawnD++;
-      }
+      const pt = { x: cp.x, y: cp.y };
+      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) drawnD++;
     }
   }
 
@@ -464,49 +485,60 @@ export function drawSprites(drones, rockets) {
     const angle = typeof r.angleRad === 'number' ? r.angleRad : 0;
     if (useForceDots) {
       const cp = mapRef.latLngToContainerPoint([r.position[0], r.position[1]]);
-      const lp = mapRef.latLngToLayerPoint([r.position[0], r.position[1]]);
-      const ptA = { x: cp.x, y: cp.y };
-      const ptB = origin ? { x: lp.x - origin.x, y: lp.y - origin.y } : ptA;
-      const inA =
-        ptA.x >= -100 && ptA.x <= size2.x + 100 && ptA.y >= -100 && ptA.y <= size2.y + 100;
-      const inB =
-        ptB.x >= -100 && ptB.x <= size2.x + 100 && ptB.y >= -100 && ptB.y <= size2.y + 100;
-      const pt = attachToContainer && inA ? ptA : inB ? ptB : inA ? ptA : ptB;
-      ctx.save();
-      ctx.fillStyle = '#ffaa00';
+      const pt = { x: cp.x, y: cp.y };
+      const target = offctx || ctx;
+      target.save();
+      target.fillStyle = '#ffaa00';
       const onScreen = pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y;
       if (!onScreen) {
         const edge = clampToViewport(pt, size2.x, size2.y);
-        ctx.globalAlpha = 0.95;
-        ctx.beginPath();
-        ctx.arc(edge.x, edge.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        target.globalAlpha = 0.95;
+        target.beginPath();
+        target.arc(edge.x, edge.y, 5, 0, Math.PI * 2);
+        target.fill();
+        target.globalAlpha = 1;
         if (edge.x >= 0 && edge.x <= size2.x && edge.y >= 0 && edge.y <= size2.y) {
           drawnR++;
         }
       } else {
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
-        ctx.fill();
+        target.beginPath();
+        target.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+        target.fill();
         drawnR++;
       }
-      ctx.restore();
+      target.restore();
     } else {
-      drawEntity(images.rocket, r.position[0], r.position[1], angle, [40, 40], '#ffaa00');
+      // Трохи збільшена ракета для читабельності
+      drawEntity(images.rocket, r.position[0], r.position[1], angle, [28, 28], '#ffaa00');
       const cp = mapRef.latLngToContainerPoint([r.position[0], r.position[1]]);
-      const lp = mapRef.latLngToLayerPoint([r.position[0], r.position[1]]);
-      const ptA = { x: cp.x, y: cp.y };
-      const ptB = origin ? { x: lp.x - origin.x, y: lp.y - origin.y } : ptA;
-      const inA =
-        ptA.x >= -100 && ptA.x <= size2.x + 100 && ptA.y >= -100 && ptA.y <= size2.y + 100;
-      const inB =
-        ptB.x >= -100 && ptB.x <= size2.x + 100 && ptB.y >= -100 && ptB.y <= size2.y + 100;
-      const pt = attachToContainer && inA ? ptA : inB ? ptB : inA ? ptA : ptB;
-      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) {
-        drawnR++;
-      }
+      const pt = { x: cp.x, y: cp.y };
+      if (pt.x >= 0 && pt.x <= size2.x && pt.y >= 0 && pt.y <= size2.y) drawnR++;
     }
+  }
+
+  // Якщо використовуємо OffscreenCanvas — звести картинку на видимий canvas
+  if (offctx && offscreen && ctx && canvas) {
+    try {
+      ctx.save();
+      // Малюємо у піксельних координатах самого canvas
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (useOptimizer && precomputed && !precomputed.clearedFull) {
+        const dprNow = dpr || 1;
+        const sx = Math.max(0, Math.floor(precomputed.rect.x * dprNow));
+        const sy = Math.max(0, Math.floor(precomputed.rect.y * dprNow));
+        const sw = Math.floor(precomputed.rect.w * dprNow);
+        const sh = Math.floor(precomputed.rect.h * dprNow);
+        // Очистити тільки цільову область, потім частковий blit
+        ctx.clearRect(sx, sy, sw, sh);
+        ctx.drawImage(offscreen, sx, sy, sw, sh, sx, sy, sw, sh);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(offscreen, 0, 0);
+      }
+    } catch {}
+    try {
+      ctx.restore();
+    } catch {}
   }
 
   // (дебаг‑маркери вже намальовані вище)
@@ -535,4 +567,6 @@ export function drawSprites(drones, rockets) {
       w.__stats.sprites.drawn.rockets = drawnR;
     }
   } catch {}
+
+  // (без додаткового дублювання blit; вгорі вже намальовано)
 }

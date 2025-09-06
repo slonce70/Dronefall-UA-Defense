@@ -2,10 +2,13 @@
 // та запуск хвиль згідно з розкладом. Не містить DOM‑маніпуляцій; усе — через колбеки ctx.
 
 /**
- * @param {Object} ctx
+ * @param {object} ctx
  * @returns {{ startGuards: () => void, tick: () => void }}
  */
+import { Logger } from './Logger.js';
+
 export function createWaveScheduler(ctx) {
+  const log = new Logger({ scope: 'scheduler' });
   const {
     // стан і параметри
     waveSchedule,
@@ -48,7 +51,7 @@ export function createWaveScheduler(ctx) {
       setNextTargetRegion(pick);
       return pick;
     }
-    console.warn('No available regions with unused spawn points');
+    log.warn('No available regions with unused spawn points');
     setNextTargetRegion(null);
     return null;
   }
@@ -94,13 +97,16 @@ export function createWaveScheduler(ctx) {
 
   function startGuards() {
     // Ранній запуск хвилі 1 (1200мс у тестовому режимі; 10с у звичайному)
-    setTimeout(() => {
-      if (getGameOver() || getGameWon()) return;
-      const w = getCurrentWave();
-      if (w === 0 && getLastStartedWaveIndex() !== w) {
-        tryStartWave(w);
-      }
-    }, getTestMode() ? 1200 : 10000);
+    setTimeout(
+      () => {
+        if (getGameOver() || getGameWon()) return;
+        const w = getCurrentWave();
+        if (w === 0 && getLastStartedWaveIndex() !== w) {
+          tryStartWave(w);
+        }
+      },
+      getTestMode() ? 1200 : 10000
+    );
   }
 
   function tick() {
@@ -117,9 +123,8 @@ export function createWaveScheduler(ctx) {
     const allowStart = (!getRightOnlyMode() && getHardcoreMode()) || w < 25;
     const t = getAccumulatedTime();
     if (allowStart && lsi !== w && t >= (waveSchedule[w] ?? Infinity)) {
-      console.log(
-        `Game Loop: Wave ${w + 1}, defensePoints=${allDefensePoints.length}, alive=` +
-          allDefensePoints.filter((d) => d.alive).length
+      log.info(
+        `Wave ${w + 1}, defensePoints=${allDefensePoints.length}, alive=${allDefensePoints.filter((d) => d.alive).length}`
       );
       maybeNotifyTargetRegionForWave(w);
       maybeActivateNewDefensePointForWave(w);
@@ -129,4 +134,3 @@ export function createWaveScheduler(ctx) {
 
   return { startGuards, tick };
 }
-
