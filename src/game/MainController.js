@@ -624,7 +624,7 @@ export function bootstrap() {
     }
   }
   function startWave() {
-    // фиксируем факт старта волны, чтобы не запустить её повторно с других таймеров
+    // Фіксуємо старт хвилі, щоб не запустити її повторно з інших таймерів
     lastStartedWaveIndex = currentWave;
     triggerAlarm(isSoundOn, alarmSound, alarmIndicator, gameSpeed);
     try {

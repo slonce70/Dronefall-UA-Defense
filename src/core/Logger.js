@@ -14,12 +14,14 @@ function detectDev() {
   try {
     // Vite style
     // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta && import.meta.env)
+    if (typeof import.meta !== 'undefined' && import.meta && import.meta.env) {
       dev = !!import.meta.env.DEV;
+    }
   } catch {}
   try {
-    if (!dev && typeof process !== 'undefined' && process.env)
+    if (!dev && typeof process !== 'undefined' && process.env) {
       dev = process.env.NODE_ENV !== 'production';
+    }
   } catch {}
   try {
     if (typeof window !== 'undefined') {
@@ -51,8 +53,9 @@ export class Logger {
 
   levelName() {
     const entries = Object.entries(LEVELS);
-    for (const [k, v] of entries)
+    for (const [k, v] of entries) {
       if (v === this.level) return /** @type {keyof typeof LEVELS} */ (k);
+    }
     return 'info';
   }
 
