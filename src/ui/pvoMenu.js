@@ -107,7 +107,7 @@ export function setupPvoMenu(ctx) {
     document.createElement('br'),
     document.createTextNode('💶3000')
   );
-  airportBtn.style.marginTop = '10px';
+  airportBtn.classList.add('mt-10');
   pvoMenu.appendChild(airportBtn);
 
   const movePVOButton = document.createElement('button');
@@ -119,7 +119,7 @@ export function setupPvoMenu(ctx) {
     document.createTextNode('Перемістити F-16')
   );
   movePVOButton.disabled = true;
-  movePVOButton.style.marginTop = '10px';
+  movePVOButton.classList.add('mt-10');
   pvoMenu.appendChild(movePVOButton);
 
   const sellPVOButton = document.createElement('button');
@@ -132,7 +132,7 @@ export function setupPvoMenu(ctx) {
     document.createTextNode('Продати ППО')
   );
   sellPVOButton.disabled = true;
-  sellPVOButton.style.marginTop = '10px';
+  sellPVOButton.classList.add('mt-10');
   pvoMenu.appendChild(sellPVOButton);
 
   const upgradePVOButton = document.createElement('button');
@@ -147,13 +147,12 @@ export function setupPvoMenu(ctx) {
     document.createTextNode('💶100')
   );
   upgradePVOButton.disabled = true;
-  upgradePVOButton.style.marginTop = '10px';
+  upgradePVOButton.classList.add('mt-10');
   pvoMenu.appendChild(upgradePVOButton);
 
   const upgradeInfo = document.createElement('div');
   upgradeInfo.id = 'upgradeInfo';
-  upgradeInfo.style.marginTop = '10px';
-  upgradeInfo.style.color = 'white';
+  upgradeInfo.classList.add('mt-10', 'text-white');
   pvoMenu.appendChild(upgradeInfo);
 
   // Обробники кнопок
@@ -327,7 +326,7 @@ export function setupPvoMenu(ctx) {
       const mid = document.createElement('span');
       mid.textContent = 'Продати ППО';
       const tail = document.createElement('span');
-      tail.style.whiteSpace = 'nowrap';
+      tail.className = 'nowrap';
       tail.textContent = `+💶${v}`;
       sellPVOButton.append(
         top,
@@ -472,7 +471,7 @@ export function setupPvoMenu(ctx) {
       const mid = document.createElement('span');
       mid.textContent = 'Продати ППО';
       const tail = document.createElement('span');
-      tail.style.whiteSpace = 'nowrap';
+      tail.className = 'nowrap';
       tail.textContent = `+💶${refund}`;
       sellPVOButton.append(
         top,

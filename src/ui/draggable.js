@@ -35,9 +35,6 @@ export function makeDraggable(target, handle) {
     window.removeEventListener('pointerup', onPointerUp);
   }
 
-  try {
-    handle.style.touchAction = 'none';
-  } catch {}
+  // touch-action налаштовано у CSS (#dragHandle)
   handle.addEventListener('pointerdown', onPointerDown);
 }
-

@@ -8,6 +8,28 @@ html {
   overflow-y: hidden;
   background: #0b0b0b;
 }
+
+/* Utility visibility/display helpers */
+.hidden { display: none !important; }
+.block { display: block !important; }
+.flex { display: flex !important; }
+.mt-10 { margin-top: 10px !important; }
+.nowrap { white-space: nowrap !important; }
+.text-white { color: #fff !important; }
+
+/* Debug perf panel */
+.perf-panel {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10001;
+  padding: 8px 10px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: monospace;
+}
 #map {
   height: 100vh;
   width: 100vw;

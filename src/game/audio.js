@@ -7,10 +7,10 @@ export function triggerWaveAlarm(isSoundOn, alarmSound, alarmIndicator, gameSpee
     } catch {}
   }
   if (alarmIndicator) {
-    alarmIndicator.style.display = 'block';
+    alarmIndicator.classList.remove('hidden');
     setTimeout(
       () => {
-        alarmIndicator.style.display = 'none';
+        alarmIndicator.classList.add('hidden');
       },
       Math.max(800, 2000 / (gameSpeed || 1))
     );

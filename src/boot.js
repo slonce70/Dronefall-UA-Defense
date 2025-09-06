@@ -129,7 +129,7 @@ try {
     // Trap фокусу поки діалог відкритий
     const detach = trapFocus(preMenu);
     const mo = new MutationObserver(() => {
-      if (preMenu.style.display === 'none') {
+      if (preMenu.classList.contains('hidden') || preMenu.style.display === 'none') {
         detach();
         mo.disconnect();
       }

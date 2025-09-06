@@ -60,10 +60,10 @@ export class GameInitializer {
 
     // Show core UI blocks
     try {
-      if (controlPanelEl) controlPanelEl.style.display = 'block';
-      if (pvoMenuEl) pvoMenuEl.style.display = 'flex';
-      if (soundButtonContainerEl) soundButtonContainerEl.style.display = 'flex';
-      if (speedButtonsEl) speedButtonsEl.style.display = 'flex';
+      if (controlPanelEl) controlPanelEl.classList.add('block');
+      if (pvoMenuEl) pvoMenuEl.classList.add('flex');
+      if (soundButtonContainerEl) soundButtonContainerEl.classList.add('flex');
+      if (speedButtonsEl) speedButtonsEl.classList.add('flex');
     } catch {}
 
     // Preferences via GameState (with graceful fallback to getters/setters)

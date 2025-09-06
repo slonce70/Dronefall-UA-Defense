@@ -11,15 +11,7 @@ export function attachPerfPanel() {
     return;
   }
   const box = document.createElement('div');
-  box.style.position = 'fixed';
-  box.style.right = '8px';
-  box.style.bottom = '8px';
-  box.style.zIndex = '10001';
-  box.style.padding = '8px 10px';
-  box.style.background = 'rgba(0,0,0,0.7)';
-  box.style.color = '#fff';
-  box.style.borderRadius = '8px';
-  box.style.fontSize = '12px';
+  box.className = 'perf-panel';
   document.body.appendChild(box);
   function tick() {
     try {
