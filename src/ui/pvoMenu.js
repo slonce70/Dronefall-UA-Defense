@@ -163,6 +163,26 @@ export function setupPvoMenu(ctx) {
     }
   };
 
+  // Fallback‑сумісність з різними ініціалізаторами: зберігати маркер прогресу або в ctx, або на map
+  const setPB =
+    typeof ctx.setProgressBarMarker === 'function'
+      ? ctx.setProgressBarMarker
+      : (m) => {
+          try {
+            map.__airportProgressMarker = m;
+          } catch {}
+        };
+  const getPB =
+    typeof ctx.getProgressBarMarker === 'function'
+      ? ctx.getProgressBarMarker
+      : () => {
+          try {
+            return map.__airportProgressMarker || null;
+          } catch {
+            return null;
+          }
+        };
+
   airportBtn.onclick = () => {
     const airportType = pvoTypes.find((p) => p.name === 'Аеропорт');
     const count = ctx.pvoPurchaseCounts[airportType.name] || 0;
@@ -195,7 +215,7 @@ export function setupPvoMenu(ctx) {
     const marker = L.marker(pos, {
       icon: L.divIcon({ html: container, className: '', iconSize: [60, 8], iconAnchor: [30, 4] }),
     }).addTo(map);
-    ctx.setProgressBarMarker(marker);
+    setPB(marker);
     ctx.setIsAirportSpawning(true);
     updatePvoPurchaseAvailability();
 
@@ -210,9 +230,10 @@ export function setupPvoMenu(ctx) {
       bar.style.width = pct + '%';
       if (pct >= 100) {
         try {
-          map.removeLayer(ctx.getProgressBarMarker());
+          const cur = getPB();
+          if (cur) map.removeLayer(cur);
         } catch {}
-        ctx.setProgressBarMarker(null);
+        setPB(null);
         ctx.setIsAirportSpawning(false);
         ctx.activateAirport(pos);
         updatePvoPurchaseAvailability();
